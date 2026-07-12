@@ -34,8 +34,6 @@ geliştirilir; ekip belgeleri burada tek yerde durur.
   çakışma çıkarsa ve içinden çıkamazsan Ebubekir'e yaz.
 - Belgeler (PROJE.md, görevler/) herkesin: güncellemekten çekinme, küçük ve
   sık commit at.
-- Bu repodaki **kod** Android Kalkan'a ait; kod değişikliği gerekiyorsa
-  Ebubekir'le konuş.
 - `keywords.json` güncelleyen kişi Aylin'e haber verir (Chrome tarafı aynı
   listeyi elle senkron tutuyor).
 
