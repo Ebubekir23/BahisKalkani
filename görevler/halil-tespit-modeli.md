@@ -1,4 +1,4 @@
-# Halil Hadra UZUN — Tespit Modeli (Yapay Zekâ)
+# Halil Hadra UZUN — Tespit Modeli
 
 ## Görev
 
