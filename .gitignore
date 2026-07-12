@@ -2,6 +2,7 @@
 .gradle
 .kotlin
 /local.properties
+/CLAUDE.md
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml

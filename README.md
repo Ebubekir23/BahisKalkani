@@ -21,9 +21,6 @@ isteği atılmaz.
      (modelin takılacağı arayüz)
    - **Ezgi:** gönderi JSON'unu yazarken [keywords.json](app/src/main/assets/keywords.json)
 
-[CLAUDE.md](CLAUDE.md) bu repoda kod yazanlar içindir (mimari kurallar,
-derleme/test komutları); diğer bileşen sahiplerinin okuması gerekmez.
-
 ## Hızlı başlangıç (bu repo)
 
 ```
