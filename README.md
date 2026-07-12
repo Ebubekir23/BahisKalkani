@@ -5,9 +5,6 @@ projesi. Sistem, sosyal medyadaki yasadışı bahis teşvik içeriklerini cihaz
 üstünde tespit edip kullanıcıya ulaşmadan engelliyor. Hiçbir veri
 kaydedilmez, hiçbir ağ isteği atılmaz.
 
-Bu repo, sistemin **Android Kalkan** bileşeninin kodunu ve **tüm ekibin ortak
-belgelerini** barındırır. Chrome eklentisi ve demo sandbox ayrı repolarda
-geliştirilir; ekip belgeleri burada tek yerde durur.
 
 ## Okuma sırası
 
