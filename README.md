@@ -8,7 +8,7 @@ kaydedilmez, hiçbir ağ isteği atılmaz.
 
 ## Okuma sırası
 
-1. **[PROJE.md](PROJE.md)** — ürün ne, kim neyin sahibi, ortak kurallar, takvim (5 dk)
+1. **[PROJE.md](PROJE.md)** — ürün ne, kim neyin sahibi, ortak kurallar, takvim
 2. **`görevler/` altındaki kendi dosyan** — görevin, nasıl yapacağın, teslim listesi:
    - [Ebubekir — Android Kalkan](görevler/ebubekir-android-kalkan.md)
    - [Ezgi — Demo Sandbox](görevler/ezgi-demo-sandbox.md)
