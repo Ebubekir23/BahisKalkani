@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">BahisKalkani</string>
+    <string name="accessibility_service_label">BahisKalkanı</string>
+    <string name="accessibility_service_description">BahisKalkanı, ekrandaki metinleri bahse teşvik eden içerikleri tespit etmek için okur ve bu içerikleri kapatır. Okunan hiçbir metin kaydedilmez, cihaz dışına gönderilmez ve internet bağlantısı kullanılmaz.</string>
+
+    <string name="main_title">🛡 BahisKalkanı</string>
+    <string name="main_description">Ekrandaki bahse teşvik eden içerikleri tespit eder ve üzerini kapatır. Tüm işlem cihaz üzerinde gerçekleşir.</string>
+    <string name="main_status_on">Kalkan aktif</string>
+    <string name="main_status_off">Kalkan kapalı</string>
+    <string name="main_status_off_hint">Korumanın başlaması için erişilebilirlik ayarlarından BahisKalkanı\'nı etkinleştir.</string>
+    <string name="main_enable_button">Erişilebilirlik ayarını aç</string>
+    <string name="main_blocked_label">Bu oturumda engellenen içerik</string>
+    <string name="main_kvkk_note">Gizlilik: Okunan hiçbir metin kaydedilmez, hiçbir veri cihazdan çıkmaz, internet bağlantısı kullanılmaz.</string>
+
+    <string name="overlay_warning">⚠️ Bahse teşvik eden içerik engellendi</string>
+    <string name="overlay_show_anyway">Yine de göster</string>
+    <string name="overlay_chip_show_all">%1$d içerik engellendi · Yine de göster</string>
+</resources>
