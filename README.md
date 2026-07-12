@@ -1,40 +1,48 @@
 # 🛡 BahisKalkanı
 
 TEKNOFEST 2026 "Bağımlılıklarla Mücadelede Teknolojik Uygulamalar" yarışması
-projesi. Ekrandaki bahse teşvik eden içerikleri cihaz üstünde tespit edip
-overlay ile kapatan Android uygulaması. Hiçbir veri kaydedilmez, hiçbir ağ
-isteği atılmaz.
+projesi. Sistem, sosyal medyadaki yasadışı bahis teşvik içeriklerini cihaz
+üstünde tespit edip kullanıcıya ulaşmadan engelliyor. Hiçbir veri
+kaydedilmez, hiçbir ağ isteği atılmaz.
 
-## Yeni katıldıysan okuma sırası
+Bu repo, sistemin **Android Kalkan** bileşeninin kodunu ve **tüm ekibin ortak
+belgelerini** barındırır. Chrome eklentisi ve demo sandbox ayrı repolarda
+geliştirilir; ekip belgeleri burada tek yerde durur.
+
+## Okuma sırası
 
 1. **[PROJE.md](PROJE.md)** — ürün ne, kim neyin sahibi, ortak kurallar, takvim (5 dk)
 2. **`görevler/` altındaki kendi dosyan** — görevin, nasıl yapacağın, teslim listesi:
    - [Ebubekir — Android Kalkan](görevler/ebubekir-android-kalkan.md)
-   - [Aylin — Chrome Eklentisi](görevler/aylin-chrome-eklentisi.md)
    - [Ezgi — Demo Sandbox](görevler/ezgi-demo-sandbox.md)
+   - [Aylin — Chrome Eklentisi](görevler/aylin-chrome-eklentisi.md)
    - [Halil — Tespit Modeli](görevler/halil-tespit-modeli.md)
 3. Gerektikçe:
+   - **Ebubekir:** diğer üç görev dosyası (entegrasyon sözleşmeleri —
+     model teslim formatı Halil'in, sandbox uyum kuralları Ezgi'nin
+     dosyasında)
+   - **Ezgi:** gönderi JSON'unu yazarken [keywords.json](app/src/main/assets/keywords.json)
    - **Aylin:** [keywords.json](app/src/main/assets/keywords.json) (aynen
      kopyalanacak tek kaynak) + [KeywordDetector.kt](app/src/main/java/com/teknofest/bahiskalkani/detection/KeywordDetector.kt)
      (birebir taşınacak eşleşme mantığı)
    - **Halil:** [Detector.kt](app/src/main/java/com/teknofest/bahiskalkani/detection/Detector.kt)
      (modelin takılacağı arayüz)
-   - **Ezgi:** gönderi JSON'unu yazarken [keywords.json](app/src/main/assets/keywords.json)
 
-## Hızlı başlangıç (bu repo)
+## Çalışma düzeni
 
-```
-gradlew.bat assembleDebug      # derle
-gradlew.bat installDebug       # bağlı cihaza kur
-gradlew.bat testDebugUnitTest  # birim testleri
-```
+- Herkes doğrudan `main`'e push yapar. Push etmeden önce **`git pull`** çek;
+  çakışma çıkarsa ve içinden çıkamazsan Ebubekir'e yaz.
+- Belgeler (PROJE.md, görevler/) herkesin: güncellemekten çekinme, küçük ve
+  sık commit at.
+- Bu repodaki **kod** Android Kalkan'a ait; kod değişikliği gerekiyorsa
+  Ebubekir'le konuş.
+- `keywords.json` güncelleyen kişi Aylin'e haber verir (Chrome tarafı aynı
+  listeyi elle senkron tutuyor).
 
-Kurulumdan sonra: telefonda **Ayarlar → Erişilebilirlik → BahisKalkanı**'nı
-etkinleştir. Doğrulama: `adb logcat -s BahisKalkani`.
+## Kesin kurallar (KVKK — tüm bileşenler için)
 
-## Kesin kurallar (KVKK)
-
-- Kullanıcı verisi kaydedilmez; okunan ekran metinleri saklanmaz, loglanmaz
-- Ağ isteği atılmaz; `INTERNET` izni yok ve eklenmeyecek
-- Tespit mantığı `Detector` arayüzünün arkasında kalır (Faz 2'de TFLite
-  modeli aynı arayüze takılacak)
+- Kullanıcı verisi kaydedilmez; okunan ekran/sayfa metinleri saklanmaz,
+  loglanmaz
+- Ağ isteği atılmaz; Android tarafında `INTERNET` izni yok ve eklenmeyecek
+- Tespit mantığı `Detector` arayüzünün (Chrome'da `detector.js`) arkasında
+  kalır — Faz 2'de TFLite modeli aynı arayüze takılacak
