@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Proje Amacı
 
 BahisKalkanı, TEKNOFEST 2026 için geliştirilen bir Android uygulamasıdır (Kotlin). Amaç: bir **AccessibilityService** ile ekrandaki metinleri okuyup bahse teşvik eden içerikleri tespit etmek ve bu içerikleri **overlay** ile kapatmak.
