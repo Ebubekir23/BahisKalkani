@@ -16,23 +16,35 @@ görünüm önemli.
 3. Instagram hissi veren gönderi kartı: üstte kullanıcı, ortada içerik,
    altta beğeni/yorum simgeleri (çalışması şart değil, görünmesi yeter)
 
-## Kalkan uyumu (kritik — ayrıntı: [SANDBOX_GEREKSINIMLER.md](../SANDBOX_GEREKSINIMLER.md))
+## Kalkan uyumu (kritik kurallar)
 
-- Gönderi metinleri normal `Text` composable ile — resme/Canvas'a gömme
-- Gönderinin tamamının kapanması için kart köküne
-  `Modifier.semantics(mergeDescendants = true) {}` (ilk ortak testte birlikte
-  ayarlarız)
-- Uygulama adında ve sabit arayüz metinlerinde bahis kelimesi geçmesin
-  (gönderi içeriklerinde geçmesi zaten amaç)
-- WebView yok
+1. **Metinler erişilebilirlik ağacında olmalı.** Gönderi metinlerini normal
+   `Text` composable ile çiz. Metni resmin/Canvas'ın içine gömme — kalkan
+   yalnızca erişilebilirlik ağacındaki metni görür, resim içindeki yazıyı
+   göremez.
+2. **Gönderinin tamamının kapanması için:** kartın kök composable'ına
+   `Modifier.semantics(mergeDescendants = true) {}` ekle. Böylece kartın tüm
+   metni tek düğümde birleşir ve kalkan kartın tamamını kapatır. Eklenmezse
+   yalnızca eşleşen `Text` satırı kapanır — hangisinin demoda iyi durduğuna
+   ilk ortak testte birlikte karar verilir.
+3. **Kart boyutu:** kapakta uyarı + "yine de göster" butonunun görünmesi için
+   bölge en az ~320 px genişlik ve ~220 px yükseklik olmalı (feed kartları
+   doğal olarak bunun üstündedir; çok küçük öğelerde kalkan yalnızca düz
+   kapak çizer).
+4. **WebView kullanma.** Native Compose kal.
+5. **Uygulama adında ve sabit arayüz metinlerinde bahis kelimeleri geçmesin**
+   (ör. uygulamaya "BahisFeed" deme) — kalkan onları da kapatır. Gönderi
+   İÇERİKLERİNDE geçmesi zaten işin amacı.
+6. Yorum yazma kutusu gibi yazı alanları güvenli — kalkan `isEditable`
+   alanları bilinçli olarak kapatmıyor.
 
 ## Demo verisi
 
-- Bahis gönderilerini bu repodaki `app/src/main/assets/keywords.json`
-  listesinden besle
-- Karışım: ~%30 bahis (düz + sansürlü yazım + kupon/Telegram dili),
-  ~%70 masum; araya "Betül", "alfabetik" gibi tuzak kelimeli masum
-  gönderiler koy (yanlış pozitif olmadığını göstermek için)
+- Bahis gönderilerini kalkan reposundaki `app/src/main/assets/keywords.json`
+  listesinden besle (tek kaynak orası)
+- Karışım: ~%30 bahis (düz yazım + sansürlü "b0nus"/"ç3vrim" + kupon ve
+  Telegram davet dili), ~%70 masum; araya "Betül", "alfabetik" gibi tuzak
+  kelimeli masum gönderiler koy (yanlış pozitif olmadığını göstermek için)
 - 30-40 gönderi yeterli; JSON'u elle yazmak sıkıcıysa Ebubekir'den yardım iste
 
 ## Nasıl (önerilen sıra)
@@ -41,7 +53,8 @@ görünüm önemli.
 2. `Post` data class + `assets/posts.json` + okuma katmanı (org.json yeterli)
 3. `LazyColumn` + gönderi kartı composable'ı
 4. Görünüm cilası en sona — önce kaydırılabilir 10 gönderilik sürüm çıkar,
-   Ebubekir'in cihazında kalkanla ortak test yapın (24 Temmuz'u bekleme)
+   Ebubekir'in cihazında kalkanla ortak test yapın (24 Temmuz'u bekleme;
+   kalkan APK'sı kalkan reposundan `gradlew.bat assembleDebug` ile çıkıyor)
 
 ## Takvim
 

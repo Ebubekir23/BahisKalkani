@@ -2,13 +2,42 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Bu depoda çalışırken her oturumun başında şu dosyaları oku ve talimatlarına uy:
+## Proje Amacı
 
-- **ProjeAkışı.md** — mimari kararlar, teknik bilgiler, derleme/test komutları ve kod yapısı. Bu depodaki asıl çalışma talimatları orada.
-- **PROJE.md** — ekip, görev sahipleri, ekip genelinde geçerli kurallar ve takvim.
-- **görevler/** — kişi başına görev tanımları; **MODEL_ENTEGRASYON.md** ve **SANDBOX_GEREKSINIMLER.md** — diğer bileşenlerle sözleşmeler.
+BahisKalkanı, TEKNOFEST 2026 için geliştirilen bir Android uygulamasıdır (Kotlin). Amaç: bir **AccessibilityService** ile ekrandaki metinleri okuyup bahse teşvik eden içerikleri tespit etmek ve bu içerikleri **overlay** ile kapatmak.
 
-Dosyalara bakmadan önce bilinmesi gereken iki kesin kural:
+## Mimari Kararlar
 
-1. **KVKK:** Hiçbir kullanıcı verisi kaydedilmez, hiçbir ağ isteği atılmaz, `INTERNET` izni eklenmez. Ekran metinleri loglanmaz (yalnızca debug derlemede, geçici olarak izin verilir).
-2. **Tespit mantığı her zaman `Detector` arayüzünün arkasında kalır** (`detection/` paketi); kelime listesinin tek kaynağı `app/src/main/assets/keywords.json`.
+- **Tespit katmanı değiştirilebilir olmalı:** Faz 1'de tespit basit bir kelime listesiyle yapılacak; Faz 2'de bu liste bir makine öğrenmesi modeliyle değiştirilecek. Bu yüzden tespit mantığı tek bir değiştirilebilir fonksiyon/arayüz arkasında tutulmalı (ör. `(metin) -> tespit sonucu` imzalı bir arayüz); AccessibilityService ve overlay kodu tespit yönteminin ayrıntısını bilmemeli.
+- **KVKK kuralı (kesin):** Hiçbir kullanıcı verisi kaydedilmeyecek ve hiçbir ağ isteği atılmayacak. Erişilebilirlik servisinin okuduğu ekran metinleri kalıcı depoya yazılmaz, loglanmaz, cihaz dışına çıkmaz. `INTERNET` izni eklenmemeli; ağ bağımlılığı olan kütüphaneler tercih edilmemeli.
+
+## Teknik Bilgiler
+
+- Paket/namespace: `com.teknofest.bahiskalkani`
+- Kotlin 2.2 + Jetpack Compose (Material 3), minSdk 26, target/compileSdk 36, Java 11
+- Bağımlılıklar `gradle/libs.versions.toml` sürüm kataloğu üzerinden yönetilir — yeni bağımlılığı önce kataloğa ekle, `app/build.gradle.kts` içinde `libs.*` ile referans ver
+- Compose ekranlarını `BahisKalkaniTheme` ile sarmala (`ui/theme/` altında; koyu tema ve Android 12+ dinamik renk destekli)
+
+## Komutlar
+
+Depo kökünden Gradle wrapper kullan (`gradlew.bat` Windows'ta, `./gradlew` diğer sistemlerde):
+
+- Debug APK derle: `gradlew.bat assembleDebug`
+- Bağlı cihaza/emülatöre kur: `gradlew.bat installDebug`
+- Birim testleri (JVM): `gradlew.bat testDebugUnitTest`
+  - Tek sınıf: `gradlew.bat testDebugUnitTest --tests "com.teknofest.bahiskalkani.ExampleUnitTest"`
+  - Tek metot: `--tests` içindeki sınıfa `.metotAdi` ekle
+- Cihaz testleri (çalışan emülatör/cihaz gerekir): `gradlew.bat connectedDebugAndroidTest`
+- Lint: `gradlew.bat lint` (rapor: `app/build/reports/lint-results-debug.html`)
+
+## Yapı
+
+- `app/src/main/java/com/teknofest/bahiskalkani/` — uygulama kodu
+  - `detection/` — `Detector` arayüzü (tek değiştirilebilir tespit noktası) ve Faz 1 `KeywordDetector`; kelime listesinin tek kaynağı `app/src/main/assets/keywords.json` (Chrome eklentisiyle eşdeğer tutulur)
+  - `overlay/` — `OverlayController` (TYPE_ACCESSIBILITY_OVERLAY; bölge başına iki pencere: dokunuş-geçirgen kapak + ayrı dokunulabilir "yine de göster" butonu — kapak dokunulabilir yapılırsa kaydırmayı öldürür, yapma)
+  - `service/` — `ScreenReaderService` (AccessibilityService; ekranı tarar, tespitçiyi çağırır, overlay'i günceller)
+  - `stats/` — `BlockStats` (engelleme sayacı; KVKK gereği yalnızca bellekte, yalnızca sayı)
+- `app/src/test/` — JVM birim testleri (JUnit 4)
+- `app/src/androidTest/` — cihaz/Compose UI testleri
+
+Ekip, takvim ve proje bağlamı için PROJE.md; kişi başına görev tanımları ve bileşen sözleşmeleri (model teslim formatı, sandbox uyum kuralları) için görevler/ klasörüne bak.

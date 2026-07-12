@@ -5,25 +5,48 @@
 Türkçe bahis-teşvik metni sınıflandırıcısı: girdi olarak kısa bir ekran metni
 alır, 0..1 arası "bahse teşvik" skoru döner. Hazır olunca Android Kalkan'daki
 kelime listesinin yanına takılacak (model VEYA liste eşleşirse engelle).
-Teslim formatının tam tanımı: [MODEL_ENTEGRASYON.md](../MODEL_ENTEGRASYON.md)
-— bu dosya görevin özeti ve yol önerisidir.
 
-## Teslim edilecekler (özet)
+## Uygulamadaki takılma noktası
 
-1. `model.tflite` (≤ 10 MB; APK'ya gömülecek)
-2. Ön işleme spesifikasyonu (tercihen tokenizasyon model İÇİNDE; değilse
-   vocab + Kotlin'de yeniden yazılabilir net kurallar)
-3. Skor eşiği önerisi + kalibrasyon notu
-4. ~100 örneklik etiketli kabul test seti (sansürlü varyasyonlar ve
-   "Betül"/"alfabetik" gibi tuzak negatifler dahil)
+Kalkan'da tespit mantığı tek bir arayüzün arkasında:
+
+```kotlin
+fun interface Detector {
+    fun isBettingContent(text: String): Boolean
+}
+```
+
+Model geldiğinde Ebubekir `TfLiteDetector : Detector` sınıfını yazacak ve
+serviste tek satır değişecek. Kelime listesi (`assets/keywords.json`) yedek
+olarak kalacak. Eşiği uygulama uygular; model yalnızca skor döner.
+
+## Teslim edilecekler
+
+1. `model.tflite` dosyası (≤ 10 MB; APK içine, `assets/` altına gömülecek)
+2. Ön işleme spesifikasyonu — tercihen tokenizasyon modelin İÇİNDE gömülü;
+   değilse vocab dosyası + Kotlin'de yeniden yazılabilecek kadar net kurallar
+3. Skor eşiği önerisi + nasıl kalibre edildiği
+4. ~100 örneklik etiketli kabul test seti (pozitif/negatif karışık; sansürlü
+   varyasyonlar — "b0nus", "ç3vrim" — ve "Betül", "alfabetik" gibi tuzak
+   negatifler dahil). Entegrasyonun doğruluğu bu setle sınanacak.
 
 ## Sınırlar (KVKK + demo cihazı)
 
 - Tamamen cihaz üstü; eğitim dahil hiçbir aşamada kullanıcı verisi yok,
-  çalışma anında ağ yok
-- Metin başına ≤ 20 ms (orta segment telefon); tek olayda onlarca metin
-  sorgulanabilir
-- Girdi tipik 5–200 karakter (ekrandaki tek öğenin metni, tam sayfa değil)
+  çalışma anında ağ yok (uygulamada `INTERNET` izni yok ve eklenmeyecek)
+- Metin başına ≤ 20 ms (orta segment telefon); ekran taraması tek olayda
+  onlarca metin sorgulayabilir, toplam bütçe ~200 ms
+- Girdi: UTF-8 Türkçe metin, tipik 5–200 karakter (ekrandaki tek öğenin
+  metni, tam sayfa değil); Kalkan metni olduğu gibi verir
+
+## Kalkan tarafında şimdiden yapılanlar (mükerrer iş olmasın)
+
+- Kelime listesi eşleşmesi + "içeriyor mu" türev yakalama (`KeywordDetector`)
+- Basit sansür normalizasyonu: 0→o, 1→i, 3→e, 4→a, 5→s, 7→t, @→a, $→s
+  karakter dönüşümü eşleşmeden önce uygulanıyor. Model bunun ötesini
+  (boşluklu/noktalı yazım, yeni argo, bağlam) hedeflemeli.
+- Marka muafiyeti: "bahiskalkanı" türevleri tespitten muaf (uygulamanın adı
+  "bahis" içeriyor). Model eğitiminde de negatif örnek olarak eklenmeli.
 
 ## Nasıl (önerilen yol)
 
@@ -48,11 +71,14 @@ Teslim formatının tam tanımı: [MODEL_ENTEGRASYON.md](../MODEL_ENTEGRASYON.md
 - Tokenizasyon modelin içinde mi, dışında mı?
 - Maksimum girdi uzunluğu; uzun metin kesme stratejisi?
 - Hangi TFLite çalışma zamanı (LiteRT / org.tensorflow:tensorflow-lite)?
-- Eşik kalibrasyonu hangi veriyle?
+  Bağımlılık, model teslimiyle birlikte kalkan reposuna eklenecek.
+- Eşik kalibrasyonu hangi veriyle (öneri: sandbox gönderi JSON'u + kabul
+  test seti, birlikte)?
 
 ## Takvim
 
-- **24 Temmuz:** baseline model entegrasyona hazır (kontrat formatında)
+- **24 Temmuz:** baseline model entegrasyona hazır (yukarıdaki teslim
+  formatında)
 - 4-5 Ağustos: rapor için model entegre edilmiş demo (yetişmezse rapor
   kelime listesi + "model entegrasyonu sürüyor" anlatımıyla çıkar — baskı
   yok ama hedef bu)
