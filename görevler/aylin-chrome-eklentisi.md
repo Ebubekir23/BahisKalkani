@@ -19,9 +19,13 @@ tutulacak.
 ## Android tarafıyla eşdeğerlik (kritik)
 
 Bu repodaki `app/src/main/assets/keywords.json` **tek kaynak** — dosyayı
-eklentiye aynen kopyala, format şu:
+eklentiye aynen kopyala, format şu (v3):
 
-- `keywords`: eşleşme "içeriyor mu" mantığıyla, Türkçe küçük harfe çevirerek
+- `kesin` + `genel`: Chrome eklentisi **iki listeyi birleştirip** kullanır
+  (eklentide model olmadığı için geniş terimler de gerekli). Android tarafı
+  yalnızca `kesin`i kullanıyor, `genel` terimlerde kararı TFLite modeli
+  veriyor — bilgi olsun diye, eklentiyi etkilemez.
+- Eşleşme "içeriyor mu" mantığıyla, Türkçe küçük harfe çevirerek
   (`toLocaleLowerCase('tr')`) yapılır — "bahisleri", "1xbahis" gibi türevler
   de yakalanır
 - `ignored`: eşleşmeden ÖNCE metinden çıkarılır ("bahiskalkanı" gibi — ürünün

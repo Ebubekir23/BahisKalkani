@@ -1,6 +1,8 @@
 package com.teknofest.bahiskalkani.service
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -27,8 +29,22 @@ class ScreenReaderService : AccessibilityService() {
     // Sayaç her benzersiz içeriği bir kez saysın diye
     private val countedHashes = mutableSetOf<Int>()
 
+    // Hiç taranmayacak paketler; launcher onServiceConnected'da eklenir
+    private val skippedPackages = mutableSetOf(
+        "com.android.settings",
+        "com.android.systemui",
+    )
+
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // Ana ekranı (launcher) tarama: widget/uygulama etiketlerinde bahis
+        // reklamı olmaz ama model, hava durumu gibi rakam yoğun kısa widget
+        // metinlerinde yanlış alarm verebiliyor
+        packageManager.resolveActivity(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )?.activityInfo?.packageName?.let { skippedPackages.add(it) }
+
         val keyword = KeywordDetector.fromAssets(this)
         val model = TfLiteDetector.fromAssets(this)
         // Ucuz kontrol önde: kelime listesi eşleşirse model hiç çağrılmaz
@@ -58,11 +74,11 @@ class ScreenReaderService : AccessibilityService() {
             return
         }
         // Olayın kaynağı değil, TARANAN pencere belirleyici: aktif pencere
-        // kendi uygulamamız ya da sistem yüzeyiyse (ayarlar, bildirim çubuğu)
-        // hiç tarama — kullanıcının servisi kapatabileceği kaçış yolu her
-        // zaman açık kalmalı.
+        // kendi uygulamamız, sistem yüzeyi (ayarlar, bildirim çubuğu) ya da
+        // ana ekransa hiç tarama — kullanıcının servisi kapatabileceği kaçış
+        // yolu her zaman açık kalmalı.
         val rootPackage = root.packageName?.toString()
-        if (rootPackage == packageName || rootPackage in SYSTEM_PACKAGES) {
+        if (rootPackage == packageName || rootPackage in skippedPackages) {
             overlay.clear()
             return
         }
@@ -124,9 +140,5 @@ class ScreenReaderService : AccessibilityService() {
 
     private companion object {
         const val TAG = "BahisKalkani"
-        val SYSTEM_PACKAGES = setOf(
-            "com.android.settings",
-            "com.android.systemui",
-        )
     }
 }

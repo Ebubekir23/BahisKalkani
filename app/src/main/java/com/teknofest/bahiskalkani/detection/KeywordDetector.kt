@@ -65,8 +65,12 @@ class KeywordDetector(
             val json = JSONObject(
                 context.assets.open("keywords.json").bufferedReader().use { it.readText() },
             )
+            // Android yalnızca "kesin" ifadeleri kullanır; "genel" terimlerde
+            // (bahis, iddaa...) karar TFLite modelinde — çıplak terimler haber
+            // ve şikayet metinlerini de kapatıyordu. Chrome eklentisi (model
+            // yok) kesin + genel listelerinin İKİSİNİ de kullanır.
             return KeywordDetector(
-                keywords = json.getJSONArray("keywords").toStringList(),
+                keywords = json.getJSONArray("kesin").toStringList(),
                 ignoredPhrases = json.optJSONArray("ignored")?.toStringList() ?: emptyList(),
             )
         }
