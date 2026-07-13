@@ -102,8 +102,8 @@ tüm çıktılar `model_cikti.zip` olarak otomatik indirilir.
       `degerlendir.py` ile PC'de.
 - [ ] Eşik güncellemesi (sürekli kural): `esik.json` her değiştiğinde
       `TfLiteDetector.VARSAYILAN_ESIK` sabitini eşitle.
-- [ ] Telefonda gerçek gecikme ölçümü + uçtan uca test (Ebubekir, kablo
-      gelince: `gradlew.bat connectedDebugAndroidTest`).
+- [ ] Telefonda gerçek gecikme ölçümü + uçtan uca test (Ebubekir):
+      `gradlew.bat connectedDebugAndroidTest`
 
 ## Açık soruların cevap önerileri (Ebubekir'le kapatılacak)
 
