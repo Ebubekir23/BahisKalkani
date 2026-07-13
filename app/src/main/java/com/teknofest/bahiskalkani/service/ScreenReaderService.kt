@@ -62,7 +62,9 @@ class ScreenReaderService : AccessibilityService() {
         // ("kanal" kelimesini Telegram davetlerinden teşvik sinyali öğrendi).
         detector = Detector { text ->
             keyword.isBettingContent(text) ||
-                (text.length >= MODEL_MIN_CHARS && model.isBettingContent(text))
+                (text.length >= MODEL_MIN_CHARS &&
+                    !isBareUrl(text) &&
+                    model.isBettingContent(text))
         }
         overlay = OverlayController(
             this,
@@ -151,6 +153,19 @@ class ScreenReaderService : AccessibilityService() {
             return
         }
         scanChildren(node, out)
+    }
+
+    /**
+     * Tek başına adres olan metin (arama sonucundaki "https://eksisozluk.com"
+     * gibi) modele sorulmaz: model, eğitim verisindeki davet linklerinden
+     * "https://" desenini teşvik sinyali olarak öğrendi ve masum adreslere
+     * alarm veriyor. Çıplak adres içerik değildir; bahis paylaşımlarında
+     * linkin yanındaki davet metni zaten yakalanır.
+     */
+    private fun isBareUrl(text: String): Boolean {
+        val t = text.trim()
+        if (t.any { it.isWhitespace() }) return false
+        return t.startsWith("http://") || t.startsWith("https://") || t.startsWith("www.")
     }
 
     private fun scanChildren(node: AccessibilityNodeInfo, out: MutableList<CoverTarget>) {
