@@ -53,7 +53,9 @@ Entegrasyon adımları (Ebubekir, [YOL_HARITASI.md](YOL_HARITASI.md)'de sahipli 
 
 1. `cikti/model.tflite` + `cikti/model_vocab.json` → `app/src/main/assets/`
 2. `kotlin/TfLiteDetector.kt` → `app/src/main/java/com/teknofest/bahiskalkani/detection/`
-3. `app/build.gradle.kts` bağımlılığı: `org.tensorflow:tensorflow-lite:2.14.0`
+3. `app/build.gradle.kts` bağımlılığı: `com.google.ai.edge.litert:litert:1.2.0`
+   (eski `org.tensorflow:tensorflow-lite` paketi AGP 9'da derlenmiyor;
+   LiteRT API/import uyumlu, kod değişmez)
 4. `ScreenReaderService` (satır ~31) birleşik tespitçi:
    `Detector { t -> keyword.isBettingContent(t) || model.isBettingContent(t) }`
 5. Kabul setleriyle doğrulama + telefonda gecikme ölçümü

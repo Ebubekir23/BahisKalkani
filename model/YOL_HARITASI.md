@@ -86,21 +86,24 @@ tüm çıktılar `model_cikti.zip` olarak otomatik indirilir.
       çıkınca modeli o gönderiler üstünde çalıştır (yeni `degerlendir.py`
       girdisi olarak), demo gününde sürpriz yaşanmasın.
 
-### Ebubekir'e devredilen (entegrasyon — 24 Temmuz sonrası)
+### Ebubekir'e devredilen (entegrasyon) — 13 Temmuz'da TAMAMLANDI
 
-- [ ] `cikti/model.tflite` + `cikti/model_vocab.json` → `app/src/main/assets/`
-- [ ] `kotlin/TfLiteDetector.kt` → `app/.../detection/` (paket adı hazır)
-- [ ] `app/build.gradle.kts`'e bağımlılık:
-      `implementation("org.tensorflow:tensorflow-lite:2.14.0")`
-- [ ] `ScreenReaderService:31`'de birleşik tespitçi:
+- [x] `cikti/model.tflite` + `cikti/model_vocab.json` → `app/src/main/assets/`
+- [x] `kotlin/TfLiteDetector.kt` → `app/.../detection/`
+- [x] Bağımlılık — NOT: `org.tensorflow:tensorflow-lite:2.14.0` AGP 9'da
+      derlenmiyor (alt modülleri aynı namespace'i paylaşıyor, yeni AGP
+      reddediyor). Yerine yeni nesil paket kullanıldı:
+      `com.google.ai.edge.litert:litert:1.2.0` — API ve importlar birebir
+      aynı (`org.tensorflow.lite.*`), kod değişikliği gerekmedi.
+- [x] `ScreenReaderService`'te birleşik tespitçi:
       `Detector { t -> keyword.isBettingContent(t) || model.isBettingContent(t) }`
-- [ ] `TfLiteDetectorTest` — kabul setini `androidTest`'te değil birim testte
-      koşmak için TFLite'ın JVM sürümü gerekmez; pratik yol: kabul setini
-      cihaz testinde (`androidTest`) koşan küçük bir test yaz veya kabul
-      doğrulamasını `degerlendir.py` ile PC'de yapıp cihazda 5-10 örneklik
-      duman testiyle yetin.
-- [ ] Eşik güncellemesi: `esik.json` her değiştiğinde
+- [x] `TfLiteDetectorTest` — cihazda duman testi (`androidTest`): 2 pozitif,
+      3 negatif (tuzak dahil), gecikme bütçesi; kapsamlı doğruluk ölçümü
+      `degerlendir.py` ile PC'de.
+- [ ] Eşik güncellemesi (sürekli kural): `esik.json` her değiştiğinde
       `TfLiteDetector.VARSAYILAN_ESIK` sabitini eşitle.
+- [ ] Telefonda gerçek gecikme ölçümü + uçtan uca test (Ebubekir, kablo
+      gelince: `gradlew.bat connectedDebugAndroidTest`).
 
 ## Açık soruların cevap önerileri (Ebubekir'le kapatılacak)
 

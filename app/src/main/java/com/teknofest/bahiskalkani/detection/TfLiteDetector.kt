@@ -10,21 +10,10 @@ import org.tensorflow.lite.Interpreter
  * Faz 2 tespitçisi: karakter seviyesi TFLite modeliyle 0..1 "bahse teşvik"
  * skoru üretir, [threshold] üstünü engellenecek içerik sayar.
  *
- * REFERANS İMPLEMENTASYON — model/kotlin/ altından app/src/main/java/...'ya
- * Ebubekir taşıyacak. Gerekli asset'ler (model/cikti/ çıktılarından):
- *   assets/model.tflite, assets/model_vocab.json
- * Gerekli bağımlılık (app/build.gradle.kts):
- *   implementation("com.google.ai.edge.litert:litert:1.2.0")
- *   // (eski org.tensorflow:tensorflow-lite paketi AGP 9'da derlenmiyor —
- *   //  namespace çakışması; LiteRT importları birebir aynı: org.tensorflow.lite.*)
- *
- * Ön işleme spec'i: model/spec/ON_ISLEME.md — Python tarafıyla adım adım
- * aynı olmak ZORUNDA, değişiklik iki tarafta birden yapılır.
- *
- * Serviste önerilen kullanım (model VEYA kelime listesi eşleşirse engelle):
- *   val keyword = KeywordDetector.fromAssets(this)
- *   val model = TfLiteDetector.fromAssets(this)
- *   detector = Detector { t -> keyword.isBettingContent(t) || model.isBettingContent(t) }
+ * Ön işleme, model/spec/ON_ISLEME.md sözleşmesiyle birebir aynı olmak
+ * ZORUNDA — değişiklik Python tarafıyla birlikte yapılır. Model + sözlük
+ * asset'lerinin kaynağı model/cikti/; model yeniden eğitilirse kopyalar ve
+ * [VARSAYILAN_ESIK] (esik.json) birlikte güncellenir.
  *
  * Not: Interpreter iş parçacığı güvenli değildir; bu sınıf servis ana
  * akışından (tek iş parçacığı) çağrılmak üzere tasarlandı.

@@ -8,14 +8,15 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.teknofest.bahiskalkani.BuildConfig
 import com.teknofest.bahiskalkani.detection.Detector
 import com.teknofest.bahiskalkani.detection.KeywordDetector
+import com.teknofest.bahiskalkani.detection.TfLiteDetector
 import com.teknofest.bahiskalkani.overlay.CoverTarget
 import com.teknofest.bahiskalkani.overlay.OverlayController
 import com.teknofest.bahiskalkani.stats.BlockStats
 
 class ScreenReaderService : AccessibilityService() {
 
-    // Faz 2'de ML tabanlı Detector implementasyonu buraya takılacak;
-    // servisin geri kalanı değişmeyecek.
+    // Faz 1 kelime listesi + Faz 2 TFLite modeli birlikte çalışır:
+    // ikisinden biri "evet" derse içerik engellenir (liste güvenlik ağı).
     private lateinit var detector: Detector
     private lateinit var overlay: OverlayController
 
@@ -28,7 +29,12 @@ class ScreenReaderService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        detector = KeywordDetector.fromAssets(this)
+        val keyword = KeywordDetector.fromAssets(this)
+        val model = TfLiteDetector.fromAssets(this)
+        // Ucuz kontrol önde: kelime listesi eşleşirse model hiç çağrılmaz
+        detector = Detector { text ->
+            keyword.isBettingContent(text) || model.isBettingContent(text)
+        }
         overlay = OverlayController(
             this,
             onShowAnyway = { target -> allowedHashes.add(target.textHash) },
