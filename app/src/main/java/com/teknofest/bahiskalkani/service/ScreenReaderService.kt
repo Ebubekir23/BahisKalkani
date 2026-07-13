@@ -121,13 +121,12 @@ class ScreenReaderService : AccessibilityService() {
         // kapanırsa yazdığını göremez
         if (node.isEditable) return
 
-        val text = buildString {
-            node.text?.let { append(it) }
-            node.contentDescription?.let {
-                if (isNotEmpty()) append(' ')
-                append(it)
-            }
-        }
+        // Yalnızca ekranda GÖRÜNEN metin taranır. contentDescription bilinçli
+        // olarak dışarıda: ikon butonları (arama önerisi ok'u gibi) arama
+        // metnini contentDescription'da taşıyor ve ekranda görünmeyen "içerik"
+        // yüzünden ikonlar kapatılıyordu. Görselleri alt metinden yakalamak
+        // görsel tespitle birlikte gelecek çalışma kapsamında.
+        val text = node.text?.toString() ?: ""
         if (text.isNotBlank()) {
             val hash = text.hashCode()
             val isBetting = decisionCache.getOrPut(hash) { detector.isBettingContent(text) }

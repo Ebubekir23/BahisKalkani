@@ -79,6 +79,12 @@ tüm çıktılar `model_cikti.zip` olarak otomatik indirilir.
       bozulursa tuzak örneklerini incele: etiketi tartışmalı olan varsa kabul
       setinde düzeltme yapılabilir ama SEBEBİNİ commit mesajına yaz
       (kabul seti sözleşmedir, sessiz değiştirilmez).
+- [ ] **V6: saha yanlış alarmlarıyla yeniden eğitim** — 13 Tem cihaz testinde
+      0.92 eşikte bile yanlış alarm veren gerçek metinler toplandı:
+      [data/saha_yanlis_alarmlar.md](data/saha_yanlis_alarmlar.md). Oradaki
+      kalıplarda (haber+URL, sosyal medya meta verisi, forum üyelik kalıbı)
+      hedefli negatifler üretilip yeniden eğitilmeli; rapor kayıtlarından
+      (4-5 Ağustos) önce bitmesi ideal.
 - [ ] **Gecikme ölçümü telefonda** — PC ölçümü yalnızca gösterge;
       Ebubekir'in cihazında `TfLiteDetector.score()` için ölçüm alın
       (hedef ≤ 20 ms/metin, bütçe 10 metinde ~200 ms).
