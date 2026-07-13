@@ -1,0 +1,43 @@
+{
+  "ham_ornek": 2918,
+  "cogaltilmis_egitim": 4448,
+  "dogrulama_ornek": 439,
+  "dogrulama_metrikleri": {
+    "acc": 0.9498860836029053,
+    "auc": 0.9919419288635254,
+    "duyarlilik": 0.9432989954948425,
+    "kesinlik": 0.9432989954948425,
+    "loss": 0.20170393586158752
+  },
+  "egitim_metrikleri": {
+    "acc": 1.0,
+    "auc": 0.9999999403953552,
+    "duyarlilik": 1.0,
+    "kesinlik": 1.0,
+    "loss": 0.10800480097532272
+  },
+  "asiri_ogrenme_farki": 0.0501,
+  "kullanilan_ayarlar": {
+    "embed_dim": 48,
+    "filtreler": 96,
+    "cekirdekler": [
+      3,
+      4,
+      5
+    ],
+    "spatial_dropout": 0.09353499463866857,
+    "dropout1": 0.29584402883205474,
+    "dropout2": 0.24969257876413276,
+    "dense_birim": 64,
+    "l2": 5.7651323910173817e-05,
+    "lr": 0.0020094909953467972,
+    "label_smoothing": 0.03,
+    "batch": 32
+  },
+  "onerilen_esik": 0.63,
+  "esik_platosu": [
+    0.62,
+    0.65
+  ],
+  "tflite_kb": 88.3
+}

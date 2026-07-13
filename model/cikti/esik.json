@@ -1,0 +1,97 @@
+{
+  "esik": 0.63,
+  "esik_kaynagi": "egitim dogrulama bolmesi (kabul setlerinden bagimsiz secildi)",
+  "kabul_sentetik": {
+    "dogruluk": 0.96,
+    "f1": 0.9583,
+    "yanlis_pozitif": 0,
+    "yanlis_negatif": 4,
+    "tuzak_fp": 0
+  },
+  "kabul_gercek": {
+    "dogruluk": 0.9417,
+    "f1": 0.9391,
+    "yanlis_pozitif": 1,
+    "yanlis_negatif": 6,
+    "tuzak_fp": 0
+  },
+  "tani_kabul_taramasi": {
+    "en_iyi_plato": [
+      0.33,
+      0.35
+    ],
+    "not": "secim sapmali, yalnizca bilgi"
+  },
+  "olcum_gecikme_ms": 0.12,
+  "hedef_karsilandi": true,
+  "hatalar_sentetik": [
+    {
+      "text": "cas1no keyfi artik telefonda! vurgunbet indir, ilk uyeye 500 tl deneme",
+      "label": 1,
+      "kategori": "sansurlu",
+      "skor": 0.5
+    },
+    {
+      "text": "y@tir cek iste bu kadar basit. m3lekbet aninda odeme yapiyor, referans kodum: HZR21",
+      "label": 1,
+      "kategori": "sansurlu",
+      "skor": 0.353
+    },
+    {
+      "text": "tek maçla ayı kurtarma dönemi başladı 😎 hoca hangi siteyi kullandığını da söylüyor, gel takıl",
+      "label": 1,
+      "kategori": "dolayli-argo",
+      "skor": 0.079
+    },
+    {
+      "text": "oran patlatma servisi acildi, dun 3 kisi araba parasi kaldirdi, sen de kos 🏃",
+      "label": 1,
+      "kategori": "dolayli-argo",
+      "skor": 0.607
+    }
+  ],
+  "hatalar_gercek": [
+    {
+      "text": "Seni Özledik! 2.500 TL Bonus",
+      "label": 1,
+      "kategori": "p-sikayet",
+      "skor": 0.389
+    },
+    {
+      "text": "yükleme yap, 5000 TL çek",
+      "label": 1,
+      "kategori": "p-sikayet",
+      "skor": 0.437
+    },
+    {
+      "text": "hesap aç 500 TL Bonus",
+      "label": 1,
+      "kategori": "p-sikayet",
+      "skor": 0.485
+    },
+    {
+      "text": "hesabına bedava 300 TL yüklendi",
+      "label": 1,
+      "kategori": "p-sikayet",
+      "skor": 0.058
+    },
+    {
+      "text": "FreeSpin kazandınız",
+      "label": 1,
+      "kategori": "p-sikayet",
+      "skor": 0.239
+    },
+    {
+      "text": "Türkiye'nin en köklü ve en başarılı tahmin platformu tamamiyle ücretsiz. Yazarlarımızın tahmin ve yorumlarına bakmadan iddaa oynamayın.",
+      "label": 1,
+      "kategori": "p-telegram",
+      "skor": 0.058
+    },
+    {
+      "text": "resmi yollardan düzenli olarak bahis oynuyorum. ne zaman kuponum yatsa bir kaç dakika içinde bu garabet sitelerden bana mesaj geliyor.",
+      "label": 0,
+      "kategori": "n-sikayet",
+      "skor": 0.97
+    }
+  ]
+}
