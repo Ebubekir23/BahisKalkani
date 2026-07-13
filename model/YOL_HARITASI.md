@@ -101,7 +101,12 @@ tüm çıktılar `model_cikti.zip` olarak otomatik indirilir.
       3 negatif (tuzak dahil), gecikme bütçesi; kapsamlı doğruluk ölçümü
       `degerlendir.py` ile PC'de.
 - [ ] Eşik güncellemesi (sürekli kural): `esik.json` her değiştiğinde
-      `TfLiteDetector.VARSAYILAN_ESIK` sabitini eşitle.
+      `TfLiteDetector.VARSAYILAN_ESIK` sabitini gözden geçir.
+      **13 Tem saha notu (Ebubekir testi):** gündelik gezinmede yanlış
+      alarmlar (haber sonuçları, "Kanal23" gibi kısa kaynak etiketleri)
+      görüldü → uygulama eşiği 0.63'ten 0.92'ye çekildi (tanı taramasındaki
+      0.91–0.95 bandı) ve 15 karakterden kısa metinler modele sorulmuyor.
+      Sandbox kalibrasyon turunda birlikte netleştirilecek.
 - [ ] Telefonda gerçek gecikme ölçümü + uçtan uca test (Ebubekir):
       `gradlew.bat connectedDebugAndroidTest`
 

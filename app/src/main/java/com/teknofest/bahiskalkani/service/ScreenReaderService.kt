@@ -35,6 +35,15 @@ class ScreenReaderService : AccessibilityService() {
         "com.android.systemui",
     )
 
+    // Metin başına tespit kararı önbelleği (LRU): kaydırma sırasında aynı
+    // metinler saniyede defalarca yeniden taranır; model her seferinde
+    // çalışırsa kapaklar içeriğin gerisinde kalır. Yalnızca hash + karar
+    // tutulur, metin saklanmaz (KVKK).
+    private val decisionCache = object : LinkedHashMap<Int, Boolean>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Boolean>) =
+            size > CACHE_LIMIT
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         // Ana ekranı (launcher) tarama: widget/uygulama etiketlerinde bahis
@@ -47,9 +56,13 @@ class ScreenReaderService : AccessibilityService() {
 
         val keyword = KeywordDetector.fromAssets(this)
         val model = TfLiteDetector.fromAssets(this)
-        // Ucuz kontrol önde: kelime listesi eşleşirse model hiç çağrılmaz
+        // Ucuz kontrol önde: kelime listesi eşleşirse model hiç çağrılmaz.
+        // Model yalnızca yeterince uzun metinlerde çalışır: "Kanal23 · 4g"
+        // gibi kısa kaynak etiketlerinde bağlam yok, model yanılıyor
+        // ("kanal" kelimesini Telegram davetlerinden teşvik sinyali öğrendi).
         detector = Detector { text ->
-            keyword.isBettingContent(text) || model.isBettingContent(text)
+            keyword.isBettingContent(text) ||
+                (text.length >= MODEL_MIN_CHARS && model.isBettingContent(text))
         }
         overlay = OverlayController(
             this,
@@ -61,7 +74,8 @@ class ScreenReaderService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED
         ) {
             return
         }
@@ -114,8 +128,13 @@ class ScreenReaderService : AccessibilityService() {
                 append(it)
             }
         }
-        if (text.isNotBlank() && detector.isBettingContent(text)) {
+        if (text.isNotBlank()) {
             val hash = text.hashCode()
+            val isBetting = decisionCache.getOrPut(hash) { detector.isBettingContent(text) }
+            if (!isBetting) {
+                scanChildren(node, out)
+                return
+            }
             if (hash !in allowedHashes) {
                 val bounds = Rect()
                 node.getBoundsInScreen(bounds)
@@ -132,6 +151,10 @@ class ScreenReaderService : AccessibilityService() {
             // Eşleşen düğümün altına inmeye gerek yok, tamamı kapanacak
             return
         }
+        scanChildren(node, out)
+    }
+
+    private fun scanChildren(node: AccessibilityNodeInfo, out: MutableList<CoverTarget>) {
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             scan(child, out)
@@ -140,5 +163,12 @@ class ScreenReaderService : AccessibilityService() {
 
     private companion object {
         const val TAG = "BahisKalkani"
+
+        // Model bundan kısa metinlere sorulmaz: bağlam yetersiz, yanlış
+        // alarm üretiyor ("Kanal23 · 4g" gibi kaynak etiketleri)
+        const val MODEL_MIN_CHARS = 15
+
+        // Karar önbelleği üst sınırı (hash + boolean; metin tutulmaz)
+        const val CACHE_LIMIT = 500
     }
 }

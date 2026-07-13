@@ -57,12 +57,14 @@ class TfLiteDetector(
         private const val PAD = 0
         private const val OOV = 1
 
-        /** Önerilen eşik — eğitimin doğrulama bölmesinden (model/cikti/esik.json);
-         *  model her yeniden eğitildiğinde degerlendir.py çıktısıyla güncellenir.
-         *  13 Temmuz nihai Colab eğitimi (Optuna ayarlı, sentetik+gerçek veri):
-         *  sentetik kabul %96 (0 yanlış alarm), GERÇEK saha seti %94.2,
-         *  tuzaklarda 0 yanlış alarm, model 88 KB, 0.12 ms/metin. */
-        const val VARSAYILAN_ESIK = 0.63f
+        /** Uygulama eşiği. Modelin kalibre değeri 0.63'tü (model/cikti/esik.json);
+         *  13 Temmuz saha testinde gündelik gezinmede yanlış alarmlar görülünce
+         *  (haber sonuçları, kısa metinler) tanı taramasının %97 verdiği
+         *  0.91–0.95 bandına çekildi — yanlış alarm, kaçan içerikten öncelikli.
+         *  Sandbox verisi gelince Halil'le ikinci kalibrasyon turunda
+         *  netleştirilecek; model yeniden eğitilirse esik.json ile birlikte
+         *  gözden geçirilir. */
+        const val VARSAYILAN_ESIK = 0.92f
 
         fun fromAssets(context: Context, threshold: Float = VARSAYILAN_ESIK): TfLiteDetector {
             val model = context.assets.open("model.tflite").readBytes()
