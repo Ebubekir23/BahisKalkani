@@ -196,13 +196,15 @@ esik_karari.json'dan ayarla.
 - [x] `TfLiteDetectorTest` — cihazda duman testi (`androidTest`): 2 pozitif,
       3 negatif (tuzak dahil), gecikme bütçesi; kapsamlı doğruluk ölçümü
       `degerlendir.py` ile PC'de.
-- [ ] Eşik güncellemesi (sürekli kural): `esik.json` her değiştiğinde
+- [x] **v8 entegrasyonu yapıldı (15 Tem, Ebubekir):** yeni model.tflite +
+      model_vocab.json + mesru_alanlar.json assets'e kopyalandı;
+      TfLiteDetector v2 (URL kanalı + çıplak URL kapısı + meta-veri süzgeci
+      detektörün içinde) app'e taşındı; uygulamadaki geçici 0.92 eşiği ve
+      servis-tarafı çıplak URL filtresi kaldırıldı → `VARSAYILAN_ESIK = 0.60`
+      (esik_karari.json ile eşit). Serviste kalan tek ek muafiyet: 15
+      karakterden kısa metinler modele sorulmuyor.
+- [ ] Eşik güncellemesi (sürekli kural): `esik_karari.json` her değiştiğinde
       `TfLiteDetector.VARSAYILAN_ESIK` sabitini gözden geçir.
-      **13 Tem saha notu (Ebubekir testi):** gündelik gezinmede yanlış
-      alarmlar (haber sonuçları, "Kanal23" gibi kısa kaynak etiketleri)
-      görüldü → uygulama eşiği 0.63'ten 0.92'ye çekildi (tanı taramasındaki
-      0.91–0.95 bandı) ve 15 karakterden kısa metinler modele sorulmuyor.
-      Sandbox kalibrasyon turunda birlikte netleştirilecek.
 - [ ] Telefonda gerçek gecikme ölçümü + uçtan uca test (Ebubekir):
       `gradlew.bat connectedDebugAndroidTest`
 
