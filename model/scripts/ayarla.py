@@ -58,19 +58,26 @@ def katlar(rows: list[dict], k: int, rng: random.Random):
 
 
 def objective(trial: "optuna.Trial", rows: list[dict]) -> float:
+    # v8: veri büyüdü — kapasite arama uzayı genişletildi (10 MB / 20 ms
+    # bütçesi güvende: en büyük konfig bile ~250K param ≈ <1 MB kuantalı,
+    # gecikme hâlâ ms altı). Küçük konfiglar da uzayda kalır; Optuna karar verir.
     a = {
-        "embed_dim": trial.suggest_categorical("embed_dim", [16, 24, 32, 48]),
-        "filtreler": trial.suggest_categorical("filtreler", [32, 48, 64, 96]),
+        "embed_dim": trial.suggest_categorical("embed_dim", [24, 32, 48, 64]),
+        "filtreler": trial.suggest_categorical("filtreler", [64, 96, 128, 160]),
         "cekirdekler": list(map(int, trial.suggest_categorical(
-            "cekirdekler", ["2,3,4", "2,3,4,5", "3,4,5"]).split(","))),
-        "spatial_dropout": trial.suggest_float("spatial_dropout", 0.0, 0.3),
-        "dropout1": trial.suggest_float("dropout1", 0.2, 0.5),
-        "dropout2": trial.suggest_float("dropout2", 0.1, 0.4),
-        "dense_birim": trial.suggest_categorical("dense_birim", [32, 48, 64, 96]),
+            "cekirdekler", ["2,3,4", "2,3,4,5", "3,4,5", "2,3,4,5,6"]).split(","))),
+        "spatial_dropout": trial.suggest_float("spatial_dropout", 0.0, 0.35),
+        "dropout1": trial.suggest_float("dropout1", 0.2, 0.55),
+        "dropout2": trial.suggest_float("dropout2", 0.1, 0.45),
+        "dense_birim": trial.suggest_categorical("dense_birim", [48, 64, 96, 128]),
         "l2": trial.suggest_float("l2", 1e-6, 1e-3, log=True),
         "lr": trial.suggest_float("lr", 3e-4, 3e-3, log=True),
         "label_smoothing": trial.suggest_categorical("label_smoothing", [0.0, 0.03, 0.05, 0.1]),
         "batch": trial.suggest_categorical("batch", [32, 64]),
+        # v6: focal loss kalibrasyonu iyileştirir ve kolay örnek baskınlığını
+        # kırar — Optuna bce ile karşılaştırıp karar versin
+        "kayip": trial.suggest_categorical("kayip", ["focal", "bce"]),
+        "focal_gamma": trial.suggest_float("focal_gamma", 1.0, 3.0),
     }
     rng = random.Random(SEED)
     vocab_size = len(VOCAB_CHARS) + 2

@@ -1,43 +1,46 @@
 {
-  "ham_ornek": 2918,
-  "cogaltilmis_egitim": 4448,
-  "dogrulama_ornek": 439,
+  "ham_ornek": 4399,
+  "cogaltilmis_egitim": 7400,
+  "dogrulama_ornek": 661,
   "dogrulama_metrikleri": {
-    "acc": 0.9498860836029053,
-    "auc": 0.9919419288635254,
-    "duyarlilik": 0.9432989954948425,
-    "kesinlik": 0.9432989954948425,
-    "loss": 0.20170393586158752
+    "acc": 0.95158851146698,
+    "auc": 0.9911324381828308,
+    "duyarlilik": 0.9503816962242126,
+    "kesinlik": 0.9291045069694519,
+    "loss": 0.2898041605949402
   },
   "egitim_metrikleri": {
     "acc": 1.0,
-    "auc": 0.9999999403953552,
+    "auc": 1.0,
     "duyarlilik": 1.0,
     "kesinlik": 1.0,
-    "loss": 0.10800480097532272
+    "loss": 0.21732494235038757
   },
-  "asiri_ogrenme_farki": 0.0501,
+  "asiri_ogrenme_farki": 0.0484,
   "kullanilan_ayarlar": {
-    "embed_dim": 48,
-    "filtreler": 96,
+    "embed_dim": 32,
+    "filtreler": 160,
     "cekirdekler": [
       3,
       4,
       5
     ],
-    "spatial_dropout": 0.09353499463866857,
-    "dropout1": 0.29584402883205474,
-    "dropout2": 0.24969257876413276,
+    "spatial_dropout": 0.1672598958793736,
+    "dropout1": 0.2911188196068541,
+    "dropout2": 0.10281290743799544,
     "dense_birim": 64,
-    "l2": 5.7651323910173817e-05,
-    "lr": 0.0020094909953467972,
-    "label_smoothing": 0.03,
-    "batch": 32
+    "l2": 1.5464846592020882e-05,
+    "lr": 0.001614547093879506,
+    "label_smoothing": 0.1,
+    "batch": 32,
+    "kayip": "bce",
+    "focal_gamma": 1.0671717698689442
   },
-  "onerilen_esik": 0.63,
+  "onerilen_esik": 0.6,
+  "esik_kaynagi": "insan kararı: sistem (kesin-kelime VEYA model) FP dizini (knee); zor test setlerinde saha FP yarıya, sözleşme %99, recall %92",
   "esik_platosu": [
-    0.62,
-    0.65
+    0.41,
+    0.41
   ],
-  "tflite_kb": 88.3
+  "tflite_kb": 108.0
 }

@@ -248,6 +248,9 @@ Sınırlılıklar (bilerek belgelendi):
 | `data/kabul_testi.jsonl` | 100 örneklik sentetik kabul/sözleşme seti (`tuzak` alanlı) |
 | `data/kabul_gercek.jsonl` | 120 örneklik GERÇEK saha test seti (60/60, altın kaynak ağırlıklı) |
 | `data/GERCEK_VERI_KAYNAKLARI.md` | Gerçek verinin kaynakları, lisanslar, KVKK önlemleri |
+| `data/kabul_saha.jsonl` | v6: saha regresyon seti (cihazda görülen gerçek yanlış alarmlar + benzerleri; kapı: 0 FP) |
+| `data/kalibrasyon.jsonl` | v6: saha-temsili eşik seçim seti (eşik artık burada seçilir) |
+| `data/mesru_alanlar.json` | v6: meşru alan adı listesi (391; URL kanalı — assets'e de kopyalanır) |
 | `scripts/` | train.py, degerlendir.py, ayarla.py, requirements.txt |
 | `spec/ON_ISLEME.md` | Ön işleme sözleşmesi (Python ↔ Kotlin) |
 | `kotlin/TfLiteDetector.kt` | Ebubekir'in taşıyacağı referans implementasyon |
@@ -264,12 +267,16 @@ Sınırlılıklar (bilerek belgelendi):
 !rm -rf /content/model
 !unzip -q -o /content/model_colab.zip -d /content
 
-# İSTEĞE BAĞLI: hiperparametre araması (40 deneme × 3-katlı CV, A100'de ~30-40 dk)
+# v6 NOTU: zip'te cikti/ yok (v5 modeli v2 ön işlemeyle uyumsuzdu) —
+# SIRALAMA ÖNEMLİ: önce ayarla.py/train.py, degerlendir.py en son.
+
+# ÖNERİLEN: hiperparametre araması (veri + kayıp fonksiyonu değişti;
+# 40 deneme × 3-katlı CV, A100'de ~30-40 dk)
 !pip -q install optuna
 !python /content/model/scripts/ayarla.py
 
 !python /content/model/scripts/train.py          # cikti/model.tflite + model_vocab.json
-!python /content/model/scripts/degerlendir.py    # kabul testleri + cikti/esik.json
+!python /content/model/scripts/degerlendir.py    # 3 kabul seti + dilim raporu + INV testi
 ```
 
 Son adım — çıktıları indirme (AYRI bir hücrede, `!` olmadan çalıştırın;

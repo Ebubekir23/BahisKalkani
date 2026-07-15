@@ -1,4 +1,9 @@
-# Ön İşleme Spesifikasyonu (model v1)
+# Ön İşleme Spesifikasyonu (model v2)
+
+> **v2 değişikliği (13 Tem, saha yanlış alarmı düzeltmesi):** adımlara URL
+> normalizasyonu eklendi (aşağıda §URL) ve sözlüğe 🔗 jetonu eklendi
+> (`surum: 2`). v1 ile eğitilmiş model v2 ön işlemeyle ÇALIŞMAZ — model ve
+> ön işleme birlikte güncellenir.
 
 Modelin Python'da eğitilirken gördüğü girdi ile Kotlin'de çalışma anında
 alacağı girdi **birebir aynı** olmak zorunda; en küçük fark sessizce yanlış
@@ -12,6 +17,15 @@ skorlara yol açar. Bu belge tek kaynaktır; referans implementasyonlar:
 1. **Unicode NFC normalizasyonu.**
    - Python: `unicodedata.normalize("NFC", text)`
    - Kotlin: `Normalizer.normalize(text, Normalizer.Form.NFC)`
+1b. **URL normalizasyonu (§URL, v2).** `URL_RE` ile eşleşen her adres için:
+   alan adı çıkarılır (protokol ve `www.` atılır, ilk `/` veya `?`de kesilir,
+   küçük harfe çevrilir); alan adı `mesru_alanlar.json` listesindeyse eşleşme
+   **tek boşlukla silinir**, değilse **" 🔗 "** jetonuyla değiştirilir.
+   Gerekçe: model "https://" karakter dizisini teşvik sinyali olarak
+   ezberlemişti (saha bulgusu); meşru adresler karardan düşer, bilinmeyen
+   adresler tek tip "link var" sinyaline iner. Regex iki dilde birebir aynı
+   tutulur (kaynak: `train.py` → `URL_RE`, `TfLiteDetector.kt` → `URL_RE`).
+   İdempotenttir (normalize edilmiş metne tekrar uygulanabilir).
 2. **Türkçe küçük harfe çevirme + U+0307 temizliği.** Kotlin'de
    `lowercase(Locale("tr"))` doğru sonucu doğrudan verir (`İ→i`, `I→ı`).
    Python bunu bilmez; eğitim tarafında önce `İ→i`, `I→ı` elle uygulanır,
@@ -47,11 +61,24 @@ skorlara yol açar. Bu belge tek kaynaktır; referans implementasyonlar:
   tarafında 96 kodpoint adımlı kayan pencere + pencere başına skor maksimumu
   önerilir (şimdilik gerekmez, kod basit kalsın).
 
-## Sözlük (`model_vocab.json`)
+## Sözlük (`model_vocab.json`, surum 2)
 
-- `max_len`: 192, `pad`: 0, `oov`: 1
+- `max_len`: 192, `pad`: 0, `oov`: 1, `url_jetonu`: "🔗"
 - `karakterler`: Türk alfabesi + qwx (32), rakamlar (10), boşluk + yaygın
   noktalama/semboller (₺ € dahil), bahis paylaşımlarında sık görülen 9 emoji
-  (💚🔥🎰💰⚽🎁✅⭐📲). Toplam ~83 giriş.
+  (💚🔥🎰💰⚽🎁✅⭐📲) + 🔗 URL jetonu (v2'de SONA eklendi — id'ler kaymadı).
 - Sözlük eğitim script'inde sabittir (veriden türetilmez): yeniden eğitimde
   id'ler kaymaz, Kotlin tarafı değişmez.
+
+## Test vektörleri (URL — iki tarafta da doğrulanmalı)
+
+`mesru_alanlar.json` içinde `hurriyet.com.tr` VAR, `kuponkanal-ornek.net` YOK
+varsayımıyla:
+
+| Girdi | URL adımı sonrası |
+|---|---|
+| `Hürriyet https://www.hurriyet.com.tr Son dakika` | `Hürriyet   Son dakika` |
+| `t.me/kuponkanali hemen katıl` | ` 🔗  hemen katıl` |
+| `kuponkanal-ornek.net/giris yeni adres` | ` 🔗  yeni adres` |
+| `www.hurriyet.com.tr` (çıplak, meşru) | ` ` (boş — detektör "temiz" der) |
+| `bonus için 🔗 bekliyoruz` (zaten jetonlu) | değişmez (idempotent) |

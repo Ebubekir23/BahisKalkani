@@ -1,25 +1,29 @@
 # -*- coding: utf-8 -*-
-"""Kabul testi + gecikme ölçümü.
+"""Kabul testleri + dilim raporu + INV (değişmezlik) testleri + gecikme.
 
-Girdi:  model/cikti/model.tflite, model/cikti/model_vocab.json,
-        model/cikti/egitim_raporu.json  (train.py'nin önerdiği eşik)
-        model/data/kabul_testi.jsonl    ({"text","label","tuzak","kategori"})
-Çıktı:  model/cikti/esik.json           (eşik + kabul metrikleri)
+Girdi:  cikti/model.tflite, cikti/model_vocab.json, cikti/egitim_raporu.json
+        data/kabul_testi.jsonl   (sentetik sözleşme seti — görev teslimatı ④)
+        data/kabul_gercek.jsonl  (gerçek saha seti — varsa)
+        data/kabul_saha.jsonl    (saha regresyon seti: cihazda görülen gerçek
+                                  yanlış alarmlar + benzerleri — varsa)
+Çıktı:  cikti/esik.json
 
-Çalıştırma: py -3.12 model/scripts/degerlendir.py   (Colab: python ...)
+Çalıştırma: python model/scripts/degerlendir.py
 
-Metodoloji: eşik train.py tarafından EĞİTİMİN DOĞRULAMA BÖLMESİNDE seçilir;
-bu script kabul setini o SABİT eşikle koşar ve raporlar. Eşik kabul setinde
-seçilmez — aynı sette hem seçim hem rapor iyimser sapma yaratır. Kabul seti
-üstünde tarama yalnızca TANI amaçlı yazdırılır (veri iyileştirme kararı için).
+SÜRÜM KAPISI (hepsi sağlanmalı → "hedef karşılandı: EVET"):
+  1. Sözleşme seti: doğruluk ≥ %90 VE tuzak negatiflerde 0 yanlış alarm
+  2. Saha regresyon seti (varsa): 0 yanlış alarm — cihazda görülmüş hataların
+     tekrarı sürümü düşürür (üretim-hatası→test-vakası→kapı deseni)
+  3. INV-URL testi: negatife meşru-görünümlü URL eklemek alarm ÜRETMEMELİ
 
-Hedef (görevler/halil-tespit-modeli.md): kabul setinde ≥ %90 doğruluk +
-tuzak negatiflerde sıfır yanlış pozitif.
+Eşik train.py'de kalibrasyon setinden seçilir; burada yalnızca SABİT eşikle
+rapor edilir (aynı sette seçim+rapor iyimser sapma yaratır).
 """
 
 import json
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
 
 for _stream in (sys.stdout, sys.stderr):
@@ -30,12 +34,21 @@ import numpy as np
 
 MODEL_DIR = Path(__file__).resolve().parent.parent
 CIKTI = MODEL_DIR / "cikti"
-KABUL = MODEL_DIR / "data" / "kabul_testi.jsonl"            # sentetik sözleşme seti
-KABUL_GERCEK = MODEL_DIR / "data" / "kabul_gercek.jsonl"    # gerçek saha seti (varsa)
+DATA = MODEL_DIR / "data"
 
-# ön işleme + plato seçimi train.py ile tek kaynak
 sys.path.insert(0, str(Path(__file__).parent))
-from train import MAX_LEN, en_uzun_plato, preprocess  # noqa: E402
+from train import MAX_LEN, preprocess  # noqa: E402  (ön işleme tek kaynak)
+from kelime import keyword_isbetting  # noqa: E402  (üretim: kesin-kelime VEYA model)
+
+SETLER = [
+    ("kabul_testi.jsonl", "Sözleşme (sentetik)"),
+    ("kabul_gercek.jsonl", "Gerçek saha"),
+    ("kabul_saha.jsonl", "Saha regresyonu (cihaz hataları)"),
+]
+
+# INV testinde negatiflere eklenen, allowlist DIŞI meşru-görünümlü adresler:
+# eklenince skor eşiği AŞMAMALI (model URL varlığından alarm üretmemeli)
+INV_URLLER = ["https://ornek-gunluk-blog.net", "www.yemektarifleri-ornek.com"]
 
 
 def load_interpreter():
@@ -59,8 +72,7 @@ def score_all(interp, texts: list[str]) -> np.ndarray:
     return scores
 
 
-def metrikler(scores, y, tuzak, esik):
-    pred = scores >= esik
+def metrikler(pred, y, tuzak) -> dict:
     tp = int((pred & (y == 1)).sum())
     fp = int((pred & (y == 0)).sum())
     fn = int((~pred & (y == 1)).sum())
@@ -74,92 +86,153 @@ def metrikler(scores, y, tuzak, esik):
 
 
 def seti_kos(interp, dosya: Path, esik: float, ad: str):
-    """Bir kabul setini sabit eşikle koşar; (metrikler, hatalar) döner."""
+    """Bir seti ÜRETİM SİSTEMİYLE (kesin-kelime VEYA model) koşar; genel +
+    dilim (kategori) raporu üretir. Ölçüm, sahada çalışan bileşimi yansıtır."""
     rows = [json.loads(l) for l in dosya.read_text(encoding="utf-8").splitlines() if l.strip()]
     texts = [r["text"] for r in rows]
     y = np.array([r["label"] for r in rows])
     tuzak = np.array([bool(r.get("tuzak")) for r in rows])
-    print(f"\n{ad}: {len(rows)} örnek ({y.sum()} pozitif, {tuzak.sum()} tuzak)")
-
     scores = score_all(interp, texts)
-    m = metrikler(scores, y, tuzak, esik)
-    print(f"Sonuç @ {esik}: doğruluk {m['dogruluk']:.1%}, F1 {m['f1']:.3f}, "
-          f"FP {m['yanlis_pozitif']}, FN {m['yanlis_negatif']}, tuzak FP {m['tuzak_fp']}")
+    kw = np.array([keyword_isbetting(t) for t in texts])
+    pred = kw | (scores >= esik)          # ← üretim kararı
 
-    pred = scores >= esik
+    m = metrikler(pred, y, tuzak)
+    kw_katki = int((kw & (y == 1)).sum())
+    print(f"\n=== {ad}: {len(rows)} örnek ({int(y.sum())} poz, {int(tuzak.sum())} tuzak)")
+    print(f"  Sistem @ {esik} (kesin-kelime VEYA model): doğruluk {m['dogruluk']:.1%}, "
+          f"F1 {m['f1']:.3f}, FP {m['yanlis_pozitif']}, FN {m['yanlis_negatif']}, "
+          f"tuzak FP {m['tuzak_fp']}  (kelime katkısı: {kw_katki} poz)")
+
+    # --- dilim raporu (SİSTEM kararıyla): toplam doğruluk yüksekken kritik
+    # kalıpta çuvallamayı görünür kılar (Snorkel slicing deseni)
+    dilimler = defaultdict(lambda: {"n": 0, "hata": 0, "fp": 0})
+    for r, p in zip(rows, pred):
+        d = dilimler[r.get("kategori", r.get("kaynak", "?"))]
+        d["n"] += 1
+        if bool(p) != bool(r["label"]):
+            d["hata"] += 1
+            if r["label"] == 0:
+                d["fp"] += 1
+    dilim_raporu = {}
+    for ad_d, d in sorted(dilimler.items()):
+        dilim_raporu[ad_d] = {"n": d["n"], "hata": d["hata"], "fp": d["fp"]}
+        isaret = " ←" if d["hata"] else ""
+        print(f"    dilim {ad_d:<24} n={d['n']:<4} hata={d['hata']} (FP {d['fp']}){isaret}")
+
     hatalar = [
         {"text": r["text"], "label": r["label"],
          "kategori": r.get("kategori", r.get("kaynak", "?")),
          "skor": round(float(s), 3)}
-        for r, s, p in zip(rows, scores, pred) if p != bool(r["label"])
+        for r, s, p in zip(rows, scores, pred) if bool(p) != bool(r["label"])
     ]
     for h in hatalar:
-        print(f"  HATA [{h['kategori']}] skor={h['skor']} label={h['label']}: {h['text'][:80]}")
-    return m, hatalar, scores, y, tuzak
+        print(f"    HATA [{h['kategori']}] skor={h['skor']} label={h['label']}: {h['text'][:76]}")
+    return m, dilim_raporu, hatalar, rows, scores
+
+
+def inv_url_testi(interp, rows, scores, esik: float) -> dict:
+    """Değişmezlik (CheckList INV) testi: negatife meşru-görünümlü URL ekle →
+    alarm üretmemeli; URL'li pozitiften URL'ler çıkarılınca dil sinyali
+    yeterliyse alarm sürmeli (bilgi amaçlı)."""
+    from train import URL_RE
+
+    neg = [(r, s) for r, s in zip(rows, scores) if r["label"] == 0 and s < esik]
+    ihlal, denenen = 0, 0
+    for (r, s0), url in [(pair, INV_URLLER[i % 2]) for i, pair in enumerate(neg)]:
+        if len(r["text"]) > 160:
+            continue
+        denenen += 1
+        s1 = float(score_all(interp, [f"{r['text']} {url}"])[0])
+        if s1 >= esik:
+            ihlal += 1
+            if ihlal <= 5:
+                print(f"    İHLAL (URL ekleyince alarm): {s0:.2f}→{s1:.2f}  {r['text'][:60]}")
+    poz_url = [r for r in rows if r["label"] == 1 and URL_RE.search(r["text"])]
+    dil_kacan = 0
+    for r in poz_url:
+        temiz = " ".join(URL_RE.sub(" ", r["text"]).split())
+        if len(temiz) >= 5 and float(score_all(interp, [temiz])[0]) < esik:
+            dil_kacan += 1
+    print(f"  INV-URL: {denenen} negatife URL eklendi → {ihlal} ihlal"
+          f" | {len(poz_url)} URL'li pozitiften URL çıkınca {dil_kacan} kaçtı (bilgi)")
+    return {"denenen": denenen, "ihlal": ihlal,
+            "urlsuz_pozitif_kacan": dil_kacan, "urlli_pozitif": len(poz_url)}
 
 
 def main() -> None:
     rapor = json.loads((CIKTI / "egitim_raporu.json").read_text(encoding="utf-8"))
     esik = rapor["onerilen_esik"]
-    print(f"Sabit eşik (eğitim doğrulama bölmesinden): {esik}")
+    print(f"Sabit eşik: {esik}  (kaynak: {rapor.get('esik_kaynagi', '?')})")
 
     interp = load_interpreter()
+    sonuc, kapi = {}, {}
 
-    # Sözleşme seti (hedef bu sette ölçülür: ≥%90 + tuzak FP=0)
-    m, hatalar, scores, y, tuzak = seti_kos(interp, KABUL, esik, "Kabul seti (sentetik sözleşme)")
+    ana_rows, ana_scores = None, None
+    for dosya, ad in SETLER:
+        yol = DATA / dosya
+        if not yol.exists():
+            continue
+        m, dilimler, hatalar, rows, scores = seti_kos(interp, yol, esik, ad)
+        sonuc[dosya] = {"metrikler": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in m.items()},
+                        "dilimler": dilimler, "hatalar": hatalar}
+        if dosya == "kabul_testi.jsonl":
+            ana_rows, ana_scores = rows, scores
+            kapi["sozlesme"] = m["dogruluk"] >= 0.9 and m["tuzak_fp"] == 0
+        if dosya == "kabul_saha.jsonl":
+            # İki katmanlı kapı (üretim-hatası-regresyon deseni):
+            #  - "bildirilen": Ebubekir'in cihazda GÖRDÜĞÜ üretim hata kalıpları
+            #    (haber+URL, meta-veri, çıplak URL, forum) — SÜRÜM ENGELLEYİCİ,
+            #    0 FP şart (regresyon olmamalı).
+            #  - "cekismeli": model sertleştirme için proaktif eklenen zor
+            #    çekişmeli testler (kupon/kampanya, üyelik CTA); bazıları
+            #    bağlamsız kararlaştırılamaz → İZLENİR, engellemez.
+            #  - "gri": etiketi ekipçe belirsiz → hiçbir hesaba girmez.
+            # Karar ÜRETİM SİSTEMİYLE (kesin-kelime VEYA model).
+            y_s = np.array([r["label"] for r in rows])
+            gri = np.array([bool(r.get("gri")) for r in rows])
+            bildirilen = np.array([r.get("seviye") == "bildirilen" for r in rows])
+            kw_s = np.array([keyword_isbetting(r["text"]) for r in rows])
+            pred_s = kw_s | (scores >= esik)
+            fp_neg = pred_s & (y_s == 0) & ~gri
+            fp_bildirilen = int((fp_neg & bildirilen).sum())      # engelleyici
+            fp_cekismeli = int((fp_neg & ~bildirilen).sum())      # izleme
+            neg_cek = int(((y_s == 0) & ~gri & ~bildirilen).sum())
+            kapi["bildirilen_regresyon"] = fp_bildirilen == 0
+            sonuc[dosya]["izleme_cekismeli_fp"] = fp_cekismeli
+            sonuc[dosya]["izleme_cekismeli_fp_orani"] = round(fp_cekismeli / max(1, neg_cek), 3)
+            print(f"  KAPI (bildirilen üretim hataları, engelleyici): {fp_bildirilen} FP"
+                  f"  {'✓ regresyon yok' if fp_bildirilen == 0 else '✗ REGRESYON'}")
+            print(f"  İZLEME (çekişmeli zorlama, engellemez): {fp_cekismeli}/{neg_cek} FP "
+                  f"(bağlamsız kararlaştırılamazlar dahil; uygulama-bazlı eşikle çözülür)")
 
-    # Gerçek saha seti (varsa) — sahadaki başarının dürüst göstergesi
-    m_gercek, hatalar_gercek = None, []
-    if KABUL_GERCEK.exists():
-        m_gercek, hatalar_gercek, *_ = seti_kos(
-            interp, KABUL_GERCEK, esik, "Kabul seti (gerçek saha)")
+    print("\n=== INV-URL değişmezlik testi (sözleşme seti üzerinde)")
+    inv = inv_url_testi(interp, ana_rows, ana_scores, esik)
+    kapi["inv_url"] = inv["ihlal"] == 0
 
-    # --- TANI: kabul seti üstünde tarama (yalnızca bilgi — eşik BURADAN SEÇİLMEZ)
-    adaylar = []
-    for e in [round(0.05 + i * 0.01, 2) for i in range(91)]:
-        mm = metrikler(scores, y, tuzak, e)
-        if mm["tuzak_fp"] == 0:
-            adaylar.append((e, mm["dogruluk"]))
-    if adaylar:
-        tani_esik, tani_plato = en_uzun_plato(adaylar)
-        tani_acc = dict(adaylar)[tani_esik]
-        print(f"\nTanı (bilgi amaçlı, seçim sapmalı): kabul üstünde en iyi bitişik "
-              f"plato {tani_plato[0]}–{tani_plato[1]}, doğruluk {tani_acc:.1%}. "
-              f"Sabit eşik bu platonun dışındaysa eğitim/kabul dağılımları uyumsuz olabilir.")
-    else:
-        tani_esik, tani_plato = None, None
-        print("\nTanı: hiçbir eşik tuzaklarda sıfır FP vermiyor — veri iyileştirme gerekli.")
-
-    # --- gecikme (PC/Colab ölçümü — telefonda Ebubekir'le tekrar ölçülecek)
-    olcum_metinleri = [json.loads(l)["text"] for l in KABUL.read_text(encoding="utf-8").splitlines() if l.strip()]
-    for t in olcum_metinleri[:20]:
+    # --- gecikme
+    metinler = [r["text"] for r in ana_rows]
+    for t in metinler[:20]:
         score_all(interp, [t])
     t0 = time.perf_counter()
     n = 300
     for i in range(n):
-        score_all(interp, [olcum_metinleri[i % len(olcum_metinleri)]])
+        score_all(interp, [metinler[i % len(metinler)]])
     ms = (time.perf_counter() - t0) / n * 1000
     print(f"\nGecikme (bu makine, tek metin): ~{ms:.2f} ms  (telefon bütçesi: 20 ms)")
 
-    yuvarla = lambda d: {k: (round(v, 4) if isinstance(v, float) else v) for k, v in d.items()}
-    basarili = m["dogruluk"] >= 0.9 and m["tuzak_fp"] == 0
+    basarili = all(kapi.values())
     (CIKTI / "esik.json").write_text(
         json.dumps(
-            {"esik": esik,
-             "esik_kaynagi": "egitim dogrulama bolmesi (kabul setlerinden bagimsiz secildi)",
-             "kabul_sentetik": yuvarla(m),
-             "kabul_gercek": yuvarla(m_gercek) if m_gercek else "kabul_gercek.jsonl yok",
-             "tani_kabul_taramasi": {"en_iyi_plato": tani_plato, "not": "secim sapmali, yalnizca bilgi"},
-             "olcum_gecikme_ms": round(ms, 2),
-             "hedef_karsilandi": basarili,
-             "hatalar_sentetik": hatalar,
-             "hatalar_gercek": hatalar_gercek},
+            {"esik": esik, "esik_kaynagi": rapor.get("esik_kaynagi"),
+             "surum_kapisi": kapi, "hedef_karsilandi": basarili,
+             "inv_url_testi": inv, "olcum_gecikme_ms": round(ms, 2),
+             "setler": sonuc},
             ensure_ascii=False, indent=2,
         ),
         encoding="utf-8",
     )
-    print(f"esik.json yazıldı. Sözleşme hedefi karşılandı mı: {'EVET' if basarili else 'HAYIR'}"
-          + (f" | Gerçek saha doğruluğu: {m_gercek['dogruluk']:.1%}" if m_gercek else ""))
+    print(f"\nSürüm kapısı: {kapi}")
+    print(f"esik.json yazıldı. Hedef karşılandı mı: {'EVET' if basarili else 'HAYIR'}")
 
     colab_ciktilari_indir()
 
@@ -167,11 +240,9 @@ def main() -> None:
 def colab_ciktilari_indir() -> None:
     """Colab'da koşuluyorsa çıktıları model_cikti.zip olarak paketler.
 
-    NOT: files.download() yalnızca not defteri hücresinden çalışır; bu script
-    "!python ..." ile ayrı süreçte koştuğunda Colab çekirdeğine erişemez
-    (AttributeError: kernel). Bu yüzden zip her durumda oluşturulur, indirme
-    DENENIR, olmazsa çalıştırılacak tek satırlık hücre yazdırılır.
-    Yerel/PC koşusunda google.colab bulunmadığından hiçbir şey yapılmaz.
+    files.download() yalnızca not defteri hücresinden çalışır; script
+    '!python' ile ayrı süreçte koştuğunda paketler ve talimat yazdırır.
+    Yerel/PC koşusunda hiçbir şey yapmaz.
     """
     try:
         from google.colab import files  # type: ignore
@@ -185,10 +256,8 @@ def colab_ciktilari_indir() -> None:
         files.download(zip_yolu)
         print("İndirme başlatıldı; dosyayı Bağimlilik_TEKNOFEST klasörüne kaydedin/taşıyın.")
     except Exception:
-        print("Otomatik indirme bu süreçten yapılamıyor (normal — script '!python' ile koşuyor).")
-        print("Yeni bir HÜCREDE şunu çalıştırın:")
+        print("Otomatik indirme bu süreçten yapılamıyor (normal). Yeni bir HÜCREDE çalıştırın:")
         print(f'    from google.colab import files; files.download("{zip_yolu}")')
-        print("İnen dosyayı Bağimlilik_TEKNOFEST klasörüne koyun.")
 
 
 if __name__ == "__main__":

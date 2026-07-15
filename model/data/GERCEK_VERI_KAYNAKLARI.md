@@ -1,11 +1,24 @@
 # Gerçek Veri Kaynakları ve Lisans Notları
 
-`gercek.jsonl` (1.375 eğitim örneği) ve `kabul_gercek.jsonl` (120 saha test
-örneği) 13 Temmuz 2026'da halka açık kaynaklardan toplandı. Her satırın
-`kaynak`/`kategori` alanı kökenini taşır. Toplama → temizlik → bağımsız
-etiket denetimi (26 denetçi; 1.531 adaydan 36'sı tartışmalı/bozuk diye
-atıldı, 2 etiket düzeltildi) → eğitim/kabul bölmesi (kabul, eğitimden ve
-sentetik setlerden ayrık).
+`gercek.jsonl` (2.856 eğitim örneği) ve `kabul_gercek.jsonl` (391 saha test
+örneği) 13 Temmuz 2026'da halka açık kaynaklardan çok turlu toplandı. Her
+satırın `kaynak`/`kategori` alanı kökenini taşır. Süreç her turda: toplama →
+temizlik + KVKK maskeleme → bağımsız (zorlarda çekişmeli) etiket denetimi →
+eğitim/kabul/kalibrasyon bölmesi (test setleri eğitimden ve sentetikten
+kod düzeyinde ayrık — jenerelleme ölçülür, ezber değil).
+
+## Toplama turları
+
+| Tur | Kapsam | Yeni gerçek örnek |
+|---|---|---|
+| İlk tur | HF spam setleri, Telegram önizleme, şikayet, haber RSS, kampanya | ~1.375 |
+| V6 | Saha FP kalıpları: haber+URL, çıplak URL, meta veri, üyelik, kumar-hakkında | +419 |
+| V7 | Meşru kupon/kampanya + üyelik CTA + marka-kod-link | +143 |
+| V8 | 37 kategorili tam taksonomi (12 ★ yeni zor tuzak: gacha, çekiliş, piyango, fantezi lig, kripto airdrop, marka-haber, argo-masum, kısa-masum; emoji-minimal, farklı bahis türleri, ödeme, influencer, İng-Tr) | +1.132 (eğitim) + 271 (test) + 175 (kalibrasyon) |
+
+V8 turu 74 ajanla yürütüldü (kategori başına toplama + bağımsız denetim;
+★ kategorilerde çekişmeli ikinci denetim). 1.578 aday üretildi, denetim
+sonrası eğitim/test/kalibrasyona bölündü.
 
 ## Kaynaklar
 

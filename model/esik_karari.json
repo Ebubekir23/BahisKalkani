@@ -1,0 +1,9 @@
+{
+  "esik": 0.60,
+  "gerekce": "İnsan kararı (13 Tem, v8). ÜRETİM SİSTEMİ (kesin-kelime VEYA model) FP dizininden (knee). Nadir-pozitif dağılımda yanlış alarm baskın maliyet → precision öncelikli. @0.60: sözleşme %99, gerçek-391 %94.4 (recall %92), bildirilen üretim hataları 0 FP, INV 0 ihlal.",
+  "alternatifler": {
+    "0.65": "daha yüksek precision — çekişmeli izleme FP 3→~1, ama recall %92→%89",
+    "0.55": "daha yüksek recall — çekişmeli FP artar"
+  },
+  "not": "train.py bu dosya varsa otomatik-seçilen eşiği bununla EZER (insan kararı kalıcı olsun, yeniden eğitim sıfırlamasın). Değiştirmek için 'esik' alanını güncelle; kaldırmak için dosyayı sil (o zaman otomatik sistem-farkında seçim devreye girer). Kotlin VARSAYILAN_ESIK bununla eşit tutulur."
+}

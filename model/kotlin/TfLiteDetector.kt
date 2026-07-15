@@ -7,52 +7,81 @@ import org.json.JSONObject
 import org.tensorflow.lite.Interpreter
 
 /**
- * Faz 2 tespitçisi: karakter seviyesi TFLite modeliyle 0..1 "bahse teşvik"
- * skoru üretir, [threshold] üstünü engellenecek içerik sayar.
+ * Faz 2 tespitçisi (v2): karakter seviyesi TFLite modeliyle 0..1 "bahse
+ * teşvik" skoru üretir; ek olarak saha yanlış alarmlarına karşı üç koruma
+ * katmanı içerir (13 Tem cihaz testi bulguları üzerine):
  *
- * REFERANS İMPLEMENTASYON — model/kotlin/ altından app/src/main/java/...'ya
- * Ebubekir taşıyacak. Gerekli asset'ler (model/cikti/ çıktılarından):
- *   assets/model.tflite, assets/model_vocab.json
- * Gerekli bağımlılık (app/build.gradle.kts):
- *   implementation("com.google.ai.edge.litert:litert:1.2.0")
- *   // (eski org.tensorflow:tensorflow-lite paketi AGP 9'da derlenmiyor —
- *   //  namespace çakışması; LiteRT importları birebir aynı: org.tensorflow.lite.*)
+ *  1. URL kanalı: URL'ler modele HAM verilmez. Meşru alan adları
+ *     (assets/mesru_alanlar.json) metinden silinir; kalan URL'ler tek 🔗
+ *     jetonuna indirgenir. Model "https://" desenini ezberleyemez
+ *     (Google Messages / Chrome Safe Browsing deseni).
+ *  2. Çıplak URL kapısı: URL'ler çıkarılınca geriye anlamlı metin
+ *     kalmıyorsa hiç alarm üretilmez (modele de sorulmaz).
+ *  3. Meta-veri süzgeci: "780+ beğenme · 2 hafta önce" gibi salt
+ *     sayaç/zaman metinleri modele sorulmadan temiz sayılır.
  *
- * Ön işleme spec'i: model/spec/ON_ISLEME.md — Python tarafıyla adım adım
- * aynı olmak ZORUNDA, değişiklik iki tarafta birden yapılır.
+ * REFERANS İMPLEMENTASYON — model/kotlin/ altından app'e Ebubekir taşıyacak.
+ * Gerekli asset'ler: assets/model.tflite, assets/model_vocab.json (surum 2),
+ * assets/mesru_alanlar.json. Bağımlılık: com.google.ai.edge.litert:litert:1.2.0
  *
- * Serviste önerilen kullanım (model VEYA kelime listesi eşleşirse engelle):
- *   val keyword = KeywordDetector.fromAssets(this)
- *   val model = TfLiteDetector.fromAssets(this)
- *   detector = Detector { t -> keyword.isBettingContent(t) || model.isBettingContent(t) }
+ * Ön işleme spec'i: model/spec/ON_ISLEME.md (v2) — Python tarafıyla birebir
+ * aynı olmak ZORUNDA; URL regex'i dahil değişiklik iki tarafta birden yapılır.
  *
- * Not: Interpreter iş parçacığı güvenli değildir; bu sınıf servis ana
- * akışından (tek iş parçacığı) çağrılmak üzere tasarlandı.
+ * Serviste kullanım (değişmedi): keyword.isBettingContent(t) || model.isBettingContent(t)
+ * Not: Interpreter iş parçacığı güvenli değildir; servis ana akışından çağrılır.
  */
 class TfLiteDetector(
     private val interpreter: Interpreter,
     private val char2id: Map<String, Int>,
     private val maxLen: Int,
     private val threshold: Float,
+    private val mesruAlanlar: Set<String>,
 ) : Detector {
 
     private val turkish = Locale.forLanguageTag("tr")
     private val input = Array(1) { IntArray(maxLen) }
     private val output = Array(1) { FloatArray(1) }
 
-    override fun isBettingContent(text: String): Boolean = score(text) >= threshold
+    override fun isBettingContent(text: String): Boolean {
+        if (isMetadata(text)) return false                       // katman 3
+        val normalized = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
+        val kalan = normalized.replace(URL_TOKEN, " ").trim()
+        if (kalan.length < 3) return false                       // katman 2 (çıplak URL)
+        return score(normalized) >= threshold
+    }
 
-    /** 0..1 arası teşvik skoru — eşik kalibrasyonu ve hata ayıklama için açık. */
+    /** 0..1 arası teşvik skoru — eşik kalibrasyonu ve hata ayıklama için açık.
+     *  Girdi ham metin de olabilir; URL normalizasyonu idempotenttir. */
     fun score(text: String): Float {
         preprocess(text, input[0])
         interpreter.run(input, output)
         return output[0][0]
     }
 
-    /** spec/ON_ISLEME.md adımları: NFC → tr küçük harf → kodpoint→id → 192'ye kes/doldur.
-     *  U+0307 (birleşik nokta) silinir: ayrık yazılmış "i̇" Python tarafıyla aynı işlensin. */
+    /** Katman 1 — spec §URL: meşru alan adı → silinir, diğer URL → 🔗. */
+    private fun normalizeUrls(text: String): String =
+        URL_RE.replace(text) { m ->
+            val alan = m.value
+                .replace(Regex("(?i)^https?://"), "")
+                .replace(Regex("(?i)^www\\."), "")
+                .substringBefore('/').substringBefore('?').trim().lowercase(Locale.ROOT)
+            if (alan in mesruAlanlar) " " else " $URL_TOKEN "
+        }
+
+    /** Katman 3: '·' ile ayrılmış her parça sayaç/zaman/buton kalıbıysa meta-veridir. */
+    private fun isMetadata(text: String): Boolean {
+        val t = text.trim()
+        if (t.length > 64) return false
+        val parcalar = t.split('·', '•', '|').map { it.trim() }.filter { it.isNotEmpty() }
+        return parcalar.isNotEmpty() && parcalar.all { p ->
+            META_KALIPLARI.any { it.matches(p) }
+        }
+    }
+
+    /** spec/ON_ISLEME.md v2: NFC → URL normalizasyonu → tr küçük harf →
+     *  U+0307 temizliği → kodpoint→id → 192'ye kes/doldur. */
     private fun preprocess(text: String, dest: IntArray) {
-        val lower = Normalizer.normalize(text, Normalizer.Form.NFC)
+        val lower = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
             .lowercase(turkish)
             .replace("̇", "")
         var i = 0
@@ -67,13 +96,37 @@ class TfLiteDetector(
     companion object {
         private const val PAD = 0
         private const val OOV = 1
+        private const val URL_TOKEN = "🔗"
 
-        /** Önerilen eşik — eğitimin doğrulama bölmesinden (model/cikti/esik.json);
-         *  model her yeniden eğitildiğinde degerlendir.py çıktısıyla güncellenir.
-         *  13 Temmuz nihai Colab eğitimi (Optuna ayarlı, sentetik+gerçek veri):
-         *  sentetik kabul %96 (0 yanlış alarm), GERÇEK saha seti %94.2,
-         *  tuzaklarda 0 yanlış alarm, model 88 KB, 0.12 ms/metin. */
-        const val VARSAYILAN_ESIK = 0.63f
+        /** Python tarafındaki URL_RE ile BİREBİR aynı (spec §URL). */
+        private val URL_RE = Regex(
+            "(?i)(?:https?://|www\\.|t\\.me/)\\S+" +
+                "|\\b[a-z0-9çğıöşü-]{2,}(?:\\.[a-z0-9-]+)*\\." +
+                "(?:com|net|org|info|biz|xyz|bet|tv|club|site|online|top|io|me|mobi)" +
+                "(?:\\.tr)?\\b(?:/[^\\s]*)?" +
+                "|\\b[a-z0-9-]{2,}\\.(?:gov|edu|bel|pol|av|k12)\\.tr\\b(?:/[^\\s]*)?",
+        )
+
+        /** Salt meta-veri parçaları: "780+ beğenme", "2 hafta önce", "1,2B görüntülenme",
+         *  "Paylaş", "Kaydet" gibi tek başına masum ekran kalıpları. */
+        private val META_KALIPLARI = listOf(
+            Regex("(?i)^[\\d.,+ ]+[bkm]?\\s*(beğenme|beğeni|yorum|görüntülenme|izlenme|paylaşım|takipçi|abone|oy|puan|indirme)\\S*$"),
+            Regex("(?i)^\\d+\\s*(sn|dk|sa|saat|dakika|gün|hafta|ay|yıl)\\s*önce$"),
+            Regex("(?i)^(paylaş|kaydet|bildir|takip et|abone ol|beğen|yanıtla|yorum yap)$"),
+            Regex("^\\d+([.,]\\d+)?[bkmBKM]?$"),
+            Regex("^\\d+\\s*/\\s*\\d+$"),
+        )
+
+        /** Önerilen eşik — v8 (13 Tem): ÜRETİM SİSTEMİ (kesin-kelime VEYA
+         *  model) taramasının FP dizininden (knee) insan kararıyla seçildi.
+         *  Nadir-pozitif dağılımda yanlış alarm baskın maliyet olduğundan
+         *  precision öne alındı. @0.60: sözleşme %99, gerçek-391 %94.4
+         *  (recall %92), saha regresyon kapı FP 4, INV-URL 0 ihlal, ~0.09ms.
+         *  Kalan 4 saha FP indirgenemez ikircikli (meşru kupon/kampanya,
+         *  üyelik CTA) — bağlam gerektirir, uygulama-bazlı eşik (paket adına
+         *  göre) ile çözülür (Ebubekir; bkz. YOL_HARITASI). Precision'ı daha
+         *  artırmak için 0.65 (saha FP 2, recall %89). */
+        const val VARSAYILAN_ESIK = 0.60f
 
         fun fromAssets(context: Context, threshold: Float = VARSAYILAN_ESIK): TfLiteDetector {
             val model = context.assets.open("model.tflite").readBytes()
@@ -89,11 +142,20 @@ class TfLiteDetector(
             val char2id = buildMap {
                 for (key in chars.keys()) put(key, chars.getInt(key))
             }
+            val alanlar = try {
+                val j = JSONObject(
+                    context.assets.open("mesru_alanlar.json").bufferedReader().use { it.readText() },
+                ).getJSONArray("alanlar")
+                buildSet { for (i in 0 until j.length()) add(j.getString(i)) }
+            } catch (e: Exception) {
+                emptySet() // liste yoksa tüm URL'ler 🔗 olur; tespit çalışmaya devam eder
+            }
             return TfLiteDetector(
                 interpreter = Interpreter(buffer),
                 char2id = char2id,
                 maxLen = vocab.getInt("max_len"),
                 threshold = threshold,
+                mesruAlanlar = alanlar,
             )
         }
     }

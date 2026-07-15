@@ -19,6 +19,7 @@ Aşırı öğrenme (overfitting) önlemleri — 13 Temmuz güncellemesi:
 
 import json
 import random
+import re
 import shutil
 import sys
 import unicodedata
@@ -36,12 +37,52 @@ import tensorflow as tf
 MODEL_DIR = Path(__file__).resolve().parent.parent
 DATA = MODEL_DIR / "data" / "egitim.jsonl"          # sentetik set (kontrollü kapsam)
 GERCEK = MODEL_DIR / "data" / "gercek.jsonl"        # gerçek set (varsa eklenir)
+KALIBRASYON = MODEL_DIR / "data" / "kalibrasyon.jsonl"  # saha-temsili eşik seçim seti
+ALANLAR = MODEL_DIR / "data" / "mesru_alanlar.json"     # meşru alan adları (allowlist)
+ESIK_KARARI = MODEL_DIR / "esik_karari.json"        # insan-kararı çalışma eşiği (kalıcı)
 CIKTI = MODEL_DIR / "cikti"
 AYAR_DOSYASI = CIKTI / "en_iyi_ayarlar.json"        # ayarla.py (Optuna) çıktısı
 
 MAX_LEN = 192          # kodpoint cinsinden; spec/ON_ISLEME.md ile senkron
 PAD, OOV = 0, 1
 SEED = 42
+
+# ---- URL kanalı (v2, saha yanlış alarmı düzeltmesi — bkz. spec/ON_ISLEME.md §URL)
+# Model "https://" karakter dizisini teşvik sinyali olarak ezberlemişti.
+# Çözüm (sektör standardı, Google Messages/Chrome deseni): URL'ler modele ham
+# verilmez — meşru alan adları metinden SİLİNİR, kalan URL'ler tek 🔗 jetonuna
+# indirgenir. Kotlin tarafı (TfLiteDetector) birebir aynı kuralı uygular.
+URL_TOKEN = "🔗"
+URL_RE = re.compile(
+    r"(?i)(?:https?://|www\.|t\.me/)\S+"                                   # protokollü / www / t.me
+    r"|\b[a-z0-9çğıöşü-]{2,}(?:\.[a-z0-9-]+)*\."
+    r"(?:com|net|org|info|biz|xyz|bet|tv|club|site|online|top|io|me|mobi)"
+    r"(?:\.tr)?\b(?:/[^\s]*)?"                                             # çıplak alan adı
+    r"|\b[a-z0-9-]{2,}\.(?:gov|edu|bel|pol|av|k12)\.tr\b(?:/[^\s]*)?"      # TR kurumsal
+)
+
+
+def _mesru_alanlar() -> set[str]:
+    if ALANLAR.exists():
+        return set(json.loads(ALANLAR.read_text(encoding="utf-8"))["alanlar"])
+    return set()
+
+
+MESRU_ALANLAR = _mesru_alanlar()
+
+
+def _alan_adi(url: str) -> str:
+    """Eşleşen URL'den karşılaştırılabilir alan adını çıkarır."""
+    d = re.sub(r"(?i)^https?://", "", url)
+    d = re.sub(r"(?i)^www\.", "", d)
+    return d.split("/")[0].split("?")[0].strip().lower()
+
+
+def normalize_urls(text: str) -> str:
+    """Meşru alan adlarını siler, diğer URL'leri 🔗 jetonuna çevirir."""
+    def repl(m: re.Match) -> str:
+        return " " if _alan_adi(m.group(0)) in MESRU_ALANLAR else f" {URL_TOKEN} "
+    return URL_RE.sub(repl, text)
 
 # ayarla.py bulursa üzerine yazar; bulamazsa bu değerlerle eğitilir
 VARSAYILAN_AYARLAR = {
@@ -56,6 +97,11 @@ VARSAYILAN_AYARLAR = {
     "lr": 1e-3,
     "label_smoothing": 0.05,
     "batch": 32,
+    # v6: focal loss — kolay örneklerin (link yoğun bariz teşvikler) eğitimi
+    # domine etmesini keser ve skorları daha kalibre üretir (Mukhoti 2020).
+    # "bce" seçilirse label_smoothing devreye girer; Optuna ikisini de arar.
+    "kayip": "focal",
+    "focal_gamma": 2.0,
 }
 
 # Sözlük ON_ISLEME.md'deki tanımın tek kaynağı burasıdır; model_vocab.json
@@ -66,6 +112,7 @@ VOCAB_CHARS = (
     "0123456789"
     " .,!?;:'\"/\\()[]{}<>@#$%^&*+-_=~|₺€"
     "💚🔥🎰💰⚽🎁✅⭐📲"                  # bahis paylaşımlarında sık görülen emojiler
+    "🔗"                                 # v2: URL jetonu — SONA eklendi, id'ler kaymaz
 )
 CHAR2ID = {c: i + 2 for i, c in enumerate(VOCAB_CHARS)}  # 0=pad, 1=oov
 
@@ -94,8 +141,13 @@ def turkish_lower(text: str) -> str:
 
 
 def preprocess(text: str) -> list[int]:
-    """Metin → id dizisi. Spec: spec/ON_ISLEME.md (Kotlin ile adım adım aynı)."""
+    """Metin → id dizisi. Spec: spec/ON_ISLEME.md (Kotlin ile adım adım aynı).
+
+    v2 sırası: NFC → URL normalizasyonu (meşru alan sil / diğerini 🔗 yap)
+    → Türkçe küçük harf → kodpoint→id → 192'ye kes/doldur.
+    """
     text = unicodedata.normalize("NFC", text)
+    text = normalize_urls(text)
     text = turkish_lower(text)
     ids = [CHAR2ID.get(ch, OOV) for ch in text][:MAX_LEN]
     return ids + [PAD] * (MAX_LEN - len(ids))
@@ -111,7 +163,11 @@ def veri_yukle() -> list[dict]:
           f"({sum(r['label'] for r in rows)} pozitif)")
     if GERCEK.exists():
         gercek = [json.loads(l) for l in GERCEK.read_text(encoding="utf-8").splitlines() if l.strip()]
-        rows += [{"text": r["text"], "label": r["label"]} for r in gercek]
+        rows += [
+            {"text": r["text"], "label": r["label"],
+             **({"agirlik": r["agirlik"]} if "agirlik" in r else {})}
+            for r in gercek
+        ]
         print(f"Gerçek eğitim verisi: {len(gercek)} örnek eklendi "
               f"({sum(r['label'] for r in gercek)} pozitif) — toplam {len(rows)}")
     return rows
@@ -161,31 +217,53 @@ def spaced_variant(text: str, rng: random.Random) -> str | None:
     return None
 
 
+# Karşı-olgusal enjeksiyon için meşru-görünümlü ama allowlist DIŞI adresler
+# (🔗 jetonuna dönüşürler): model "link var = teşvik" bağıntısı kuramasın diye
+# negatiflere de link eklenir, pozitiflerin linksiz kopyaları korunur.
+ENJEKSIYON_URLLERI = [
+    "https://ornek-blog.net", "www.tarifdefteri-ornek.com", "https://habercim-ornek.xyz",
+    "gezirehberi-ornek.net", "https://teknoblog-ornek.site", "www.oyunhaber-ornek.club",
+]
+
+
 def augment(rows: list[dict], rng: random.Random) -> list[dict]:
     """Pozitiflere yoğun, negatiflere hafif gürültü ekler.
 
     Negatiflere de sansür/ascii varyantı eklenir ki model "rakamlı yazım =
     bahis" gibi sahte bir bağıntı öğrenmesin (oyuncu dili 'n00b' masumdur).
+    v6 karşı-olgusal kuralları: URL'li pozitifin URL'siz kopyası pozitif
+    kalır (teşvik dilden öğrenilsin), URL'siz metne link eklenmiş kopya
+    etiketini KORUR (link varlığı tek başına sinyal olmasın).
     """
     out = list(rows)
     for r in rows:
         text, label = r["text"], r["label"]
+        agirlik = r.get("agirlik", 1.0)
+        # --- v6 karşı-olgusal çoğaltma (her iki sınıf)
+        if URL_RE.search(text):
+            if label == 1 and rng.random() < 0.7:
+                urlsuz = " ".join(URL_RE.sub(" ", text).split())
+                if len(urlsuz) >= 5:
+                    out.append({"text": urlsuz, "label": 1, "agirlik": agirlik})
+        elif rng.random() < (0.30 if label == 0 else 0.25) and len(text) < 170:
+            out.append({"text": f"{text} {rng.choice(ENJEKSIYON_URLLERI)}",
+                        "label": label, "agirlik": agirlik})
         if label == 1:
             if rng.random() < 0.55:
-                out.append({"text": censor_variant(text, rng), "label": 1})
+                out.append({"text": censor_variant(text, rng), "label": 1, "agirlik": agirlik})
             if rng.random() < 0.60:
-                out.append({"text": ascii_variant(text), "label": 1})
+                out.append({"text": ascii_variant(text), "label": 1, "agirlik": agirlik})
             if rng.random() < 0.50:
                 sp = spaced_variant(text, rng)
                 if sp:
-                    out.append({"text": sp, "label": 1})
+                    out.append({"text": sp, "label": 1, "agirlik": agirlik})
         else:
             # negatif tarafta hafif tutulur; "aksansız/rakamlı yazım = bahis"
             # sahte bağıntısına karşı asıl çözüm organik aksansız örnekler
             if rng.random() < 0.15:
-                out.append({"text": censor_variant(text, rng), "label": 0})
+                out.append({"text": censor_variant(text, rng), "label": 0, "agirlik": agirlik})
             if rng.random() < 0.30:
-                out.append({"text": ascii_variant(text), "label": 0})
+                out.append({"text": ascii_variant(text), "label": 0, "agirlik": agirlik})
     # çoğaltma sonrası tekilleştir
     seen, dedup = set(), []
     for r in out:
@@ -200,6 +278,15 @@ def to_xy(rs: list[dict]):
     x = np.array([preprocess(r["text"]) for r in rs], dtype=np.int32)
     y = np.array([r["label"] for r in rs], dtype=np.float32)
     return x, y
+
+
+def to_w(rs: list[dict], class_weight: dict) -> np.ndarray:
+    """Örnek ağırlığı = satırdaki 'agirlik' (kazılmış zor negatif > 1)
+    × sınıf dengesi ağırlığı; Keras'a tek kanaldan (sample_weight) verilir."""
+    return np.array(
+        [r.get("agirlik", 1.0) * class_weight[r["label"]] for r in rs],
+        dtype=np.float32,
+    )
 
 
 # ---------------------------------------------------------------- eşik seçimi
@@ -233,6 +320,17 @@ def en_uzun_plato(adaylar: list[tuple[float, float]]) -> tuple[float, tuple[floa
 # ---------------------------------------------------------------- model
 
 
+def focal_bce(gamma: float):
+    """İkili focal loss (Lin 2017 / kalibrasyon: Mukhoti 2020): kolay
+    örneklerin kaybını (1-pt)^gamma ile söndürür — link yoğun bariz teşvikler
+    eğitimi domine edemez, skorlar daha kalibre çıkar."""
+    def loss(y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
+        pt = y_true * y_pred + (1.0 - y_true) * (1.0 - y_pred)
+        return -tf.pow(1.0 - pt, gamma) * tf.math.log(pt)
+    return loss
+
+
 def build_model(vocab_size: int, a: dict) -> tf.keras.Model:
     l2 = tf.keras.regularizers.l2(a["l2"]) if a["l2"] else None
     inp = tf.keras.Input(shape=(MAX_LEN,), dtype="int32", name="metin_idleri")
@@ -249,9 +347,13 @@ def build_model(vocab_size: int, a: dict) -> tf.keras.Model:
     x = tf.keras.layers.Dropout(a["dropout2"])(x)
     out = tf.keras.layers.Dense(1, activation="sigmoid", name="tesvik_skoru")(x)
     model = tf.keras.Model(inp, out)
+    if a.get("kayip", "focal") == "focal":
+        kayip = focal_bce(a.get("focal_gamma", 2.0))
+    else:
+        kayip = tf.keras.losses.BinaryCrossentropy(label_smoothing=a["label_smoothing"])
     model.compile(
         optimizer=tf.keras.optimizers.Adam(a["lr"]),
-        loss=tf.keras.losses.BinaryCrossentropy(label_smoothing=a["label_smoothing"]),
+        loss=kayip,
         metrics=[
             tf.keras.metrics.BinaryAccuracy(name="acc"),
             tf.keras.metrics.AUC(name="auc"),
@@ -302,6 +404,7 @@ def main() -> None:
     n_pos = float(y_tr.sum())
     n_neg = float(len(y_tr) - n_pos)
     class_weight = {0: (n_pos + n_neg) / (2 * n_neg), 1: (n_pos + n_neg) / (2 * n_pos)}
+    w_tr = to_w(train_rows, class_weight)  # sınıf dengesi × kazılmış-zorluk ağırlığı
 
     vocab_size = len(VOCAB_CHARS) + 2
     model = build_model(vocab_size, ayarlar)
@@ -309,10 +412,10 @@ def main() -> None:
 
     model.fit(
         x_tr, y_tr,
+        sample_weight=w_tr,
         validation_data=(x_va, y_va),
         epochs=60,
         batch_size=ayarlar["batch"],
-        class_weight=class_weight,
         callbacks=egitim_callbacks(),
         verbose=2,
     )
@@ -324,20 +427,59 @@ def main() -> None:
     print(f"Aşırı öğrenme farkı (eğitim acc − doğrulama acc): {fark:+.3f} "
           f"{'— YÜKSEK, ayarla.py önerilir' if fark > 0.05 else '(makul)'}")
 
-    # --- eşik önerisi BURADA, doğrulama bölmesinde seçilir. Kabul setinde
-    # seçilmez: aynı sette hem eşik seçmek hem başarı raporlamak iyimser
-    # sapma yaratır (kabul seti yalnızca SABİT eşikle rapor eder).
-    p_va = model.predict(x_va, verbose=0).ravel()
-    adaylar = []
-    for esik in [round(0.05 + i * 0.01, 2) for i in range(91)]:
-        pred = p_va >= esik
-        tp = int((pred & (y_va == 1)).sum())
-        fp = int((pred & (y_va == 0)).sum())
-        fn = int((~pred & (y_va == 1)).sum())
-        f1 = 2 * tp / (2 * tp + fp + fn) if tp else 0.0
-        adaylar.append((esik, f1))
-    onerilen_esik, plato = en_uzun_plato(adaylar)
-    print(f"Önerilen eşik (doğrulama F1 platosu {plato[0]}–{plato[1]} ortası): {onerilen_esik}")
+    # --- eşik önerisi: ÜRETİM SİSTEMİ (kesin-kelime VEYA model) üzerinde,
+    # saha-temsili kalibrasyon setinde seçilir. İki önemli düzeltme (v8):
+    #  1. Model tek başına değil, sahada çalışan bileşim ölçülür (kelime listesi
+    #     recall'ı destekler → model precision'a ayarlanabilir).
+    #  2. Nadir-pozitif dağılım: gerçek ekranda bahis içeriği azdır, yanlış
+    #     alarm baskın maliyettir → oran-bazlı maliyet FP'yi 2x ağırlıklar.
+    # UYARI: kalibrasyon seti pozitif-ağırlıklıdır; otomatik seçim çift-tepeli
+    # olabilir. NİHAİ çalışma eşiği aşağıdaki TARAMADAN insan seçer (zor test
+    # setlerindeki FP dizinine göre); Kotlin VARSAYILAN_ESIK bu karardır.
+    try:
+        from kelime import keyword_isbetting
+    except Exception:
+        def keyword_isbetting(_):  # kelime.py yoksa yalnız model
+            return False
+
+    def sistem_tara(rows):
+        p = model.predict(to_xy(rows)[0], verbose=0).ravel()
+        yv = np.array([r["label"] for r in rows])
+        kw = np.array([keyword_isbetting(r["text"]) for r in rows])
+        satirlar, en_iyi = [], (1e9, 0.5)
+        for e in [round(0.30 + i * 0.02, 2) for i in range(36)]:
+            pred = kw | (p >= e)
+            fpr = (pred & (yv == 0)).sum() / max(1, (yv == 0).sum())
+            fnr = (~pred & (yv == 1)).sum() / max(1, (yv == 1).sum())
+            maliyet = 2.0 * fpr + fnr          # FP 2x pahalı
+            satirlar.append((e, fpr, fnr, maliyet))
+            if maliyet < en_iyi[0]:
+                en_iyi = (maliyet, e)
+        return en_iyi[1], satirlar
+
+    if KALIBRASYON.exists():
+        kal_rows = [json.loads(l) for l in KALIBRASYON.read_text(encoding="utf-8").splitlines() if l.strip()]
+        onerilen_esik, tarama = sistem_tara(kal_rows)
+        esik_kaynagi = f"sistem (kesin-kelime VEYA model), kalibrasyon {len(kal_rows)} örnek, FP 2x maliyet"
+    else:
+        onerilen_esik, tarama = sistem_tara(val_rows)
+        esik_kaynagi = "sistem, doğrulama bölmesi (kalibrasyon.jsonl yok)"
+    print(f"Otomatik önerilen eşik ({esik_kaynagi}): {onerilen_esik}")
+    print("Sistem eşik taraması (eşik: FP_oranı / FN_oranı):")
+    for e, fpr, fnr, _ in tarama:
+        if abs((e * 100) % 5) < 1e-6:
+            print(f"  {e:.2f}: {fpr:.3f} / {fnr:.3f}")
+    # İnsan-kararı çalışma eşiği (esik_karari.json) otomatik seçimi EZER —
+    # böylece karar yeniden eğitimde sıfırlanmaz, kapı hep aynı eşikte test edilir.
+    otomatik_esik = onerilen_esik
+    if ESIK_KARARI.exists():
+        kr = json.loads(ESIK_KARARI.read_text(encoding="utf-8"))
+        onerilen_esik = float(kr["esik"])
+        esik_kaynagi = f"insan kararı (esik_karari.json): {onerilen_esik} — otomatik öneri {otomatik_esik} idi"
+        print(f"→ İnsan-kararı eşik KULLANILIYOR: {onerilen_esik} (otomatik {otomatik_esik} ezildi)")
+    else:
+        print("→ esik_karari.json yok; otomatik eşik kullanılıyor. NİHAİ eşiği "
+              "degerlendir.py + zor test setlerinden insan seçmeli.")
 
     # --- TFLite dönüşümü (Keras 3 ile en sağlam yol: SavedModel üzerinden)
     CIKTI.mkdir(exist_ok=True)
@@ -352,7 +494,8 @@ def main() -> None:
 
     (CIKTI / "model_vocab.json").write_text(
         json.dumps(
-            {"surum": 1, "max_len": MAX_LEN, "pad": PAD, "oov": OOV,
+            {"surum": 2, "max_len": MAX_LEN, "pad": PAD, "oov": OOV,
+             "url_jetonu": URL_TOKEN,
              "karakterler": {c: i for c, i in CHAR2ID.items()}},
             ensure_ascii=False, indent=2,
         ),
@@ -366,7 +509,9 @@ def main() -> None:
              "asiri_ogrenme_farki": round(fark, 4),
              "kullanilan_ayarlar": ayarlar,
              "onerilen_esik": onerilen_esik,
-             "esik_platosu": [plato[0], plato[1]],
+             "esik_kaynagi": esik_kaynagi,
+             "sistem_esik_taramasi": [{"esik": e, "fp_orani": round(fpr, 3),
+                                       "fn_orani": round(fnr, 3)} for e, fpr, fnr, _ in tarama],
              "tflite_kb": round(len(tflite) / 1024, 1)},
             ensure_ascii=False, indent=2,
         ),

@@ -1,97 +1,606 @@
 {
-  "esik": 0.63,
-  "esik_kaynagi": "egitim dogrulama bolmesi (kabul setlerinden bagimsiz secildi)",
-  "kabul_sentetik": {
-    "dogruluk": 0.96,
-    "f1": 0.9583,
-    "yanlis_pozitif": 0,
-    "yanlis_negatif": 4,
-    "tuzak_fp": 0
+  "esik": 0.6,
+  "esik_kaynagi": "insan kararı: sistem (kesin-kelime VEYA model) FP dizini (knee); zor test setlerinde saha FP yarıya, sözleşme %99, recall %92",
+  "surum_kapisi": {
+    "sozlesme": true,
+    "bildirilen_regresyon": true,
+    "inv_url": true
   },
-  "kabul_gercek": {
-    "dogruluk": 0.9417,
-    "f1": 0.9391,
-    "yanlis_pozitif": 1,
-    "yanlis_negatif": 6,
-    "tuzak_fp": 0
-  },
-  "tani_kabul_taramasi": {
-    "en_iyi_plato": [
-      0.33,
-      0.35
-    ],
-    "not": "secim sapmali, yalnizca bilgi"
-  },
-  "olcum_gecikme_ms": 0.12,
   "hedef_karsilandi": true,
-  "hatalar_sentetik": [
-    {
-      "text": "cas1no keyfi artik telefonda! vurgunbet indir, ilk uyeye 500 tl deneme",
-      "label": 1,
-      "kategori": "sansurlu",
-      "skor": 0.5
+  "inv_url_testi": {
+    "denenen": 49,
+    "ihlal": 0,
+    "urlsuz_pozitif_kacan": 0,
+    "urlli_pozitif": 5
+  },
+  "olcum_gecikme_ms": 0.08,
+  "setler": {
+    "kabul_testi.jsonl": {
+      "metrikler": {
+        "dogruluk": 0.99,
+        "f1": 0.9901,
+        "yanlis_pozitif": 1,
+        "yanlis_negatif": 0,
+        "tuzak_fp": 0
+      },
+      "dilimler": {
+        "bonus": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "casino": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "dolayli-argo": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "finans": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "gunluk": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "haber-uyari": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "kupon": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "oyun-ui": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "sansurlu": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "spor": {
+          "n": 8,
+          "hata": 1,
+          "fp": 1
+        },
+        "telegram": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "tuzak": {
+          "n": 12,
+          "hata": 0,
+          "fp": 0
+        }
+      },
+      "hatalar": [
+        {
+          "text": "Şampiyonlar Ligi kura çekimi yarın, kolay grup diliyorum",
+          "label": 0,
+          "kategori": "spor",
+          "skor": 0.614
+        }
+      ]
     },
-    {
-      "text": "y@tir cek iste bu kadar basit. m3lekbet aninda odeme yapiyor, referans kodum: HZR21",
-      "label": 1,
-      "kategori": "sansurlu",
-      "skor": 0.353
+    "kabul_gercek.jsonl": {
+      "metrikler": {
+        "dogruluk": 0.9437,
+        "f1": 0.9337,
+        "yanlis_pozitif": 8,
+        "yanlis_negatif": 14,
+        "tuzak_fp": 0
+      },
+      "dilimler": {
+        "n-haber": {
+          "n": 12,
+          "hata": 0,
+          "fp": 0
+        },
+        "n-kampanya": {
+          "n": 12,
+          "hata": 0,
+          "fp": 0
+        },
+        "n-operasyon": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "n-sikayet": {
+          "n": 15,
+          "hata": 2,
+          "fp": 2
+        },
+        "n-web": {
+          "n": 13,
+          "hata": 1,
+          "fp": 1
+        },
+        "n01-gunluk": {
+          "n": 9,
+          "hata": 0,
+          "fp": 0
+        },
+        "n02-skor-tahmin": {
+          "n": 9,
+          "hata": 0,
+          "fp": 0
+        },
+        "n03-tuzak-kelime": {
+          "n": 9,
+          "hata": 0,
+          "fp": 0
+        },
+        "n04-mesru-finans": {
+          "n": 10,
+          "hata": 1,
+          "fp": 1
+        },
+        "n05-operasyon-haber": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "n06-bagimlilik-uyari": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "n07-oyun-uygulama": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "n08-oyun-gacha": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "n09-mesru-url-haber": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "n10-meta-veri": {
+          "n": 7,
+          "hata": 1,
+          "fp": 1
+        },
+        "n11-uyelik-cerez": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "n12-eticaret-kupon": {
+          "n": 7,
+          "hata": 1,
+          "fp": 1
+        },
+        "n13-mesru-abonelik": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "n14-cekilis-yarisma": {
+          "n": 9,
+          "hata": 0,
+          "fp": 0
+        },
+        "n15-piyango": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "n16-fantezi-tahmin": {
+          "n": 9,
+          "hata": 1,
+          "fp": 1
+        },
+        "n17-kripto-airdrop": {
+          "n": 7,
+          "hata": 1,
+          "fp": 1
+        },
+        "n18-marka-haber": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "n19-argo-masum": {
+          "n": 9,
+          "hata": 0,
+          "fp": 0
+        },
+        "n20-cok-kisa-masum": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "p-sikayet": {
+          "n": 20,
+          "hata": 1,
+          "fp": 0
+        },
+        "p-telegram": {
+          "n": 30,
+          "hata": 3,
+          "fp": 0
+        },
+        "p-web": {
+          "n": 10,
+          "hata": 0,
+          "fp": 0
+        },
+        "p01-kupon": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "p02-deneme-bonus": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "p03-cevrimsiz-kayip": {
+          "n": 6,
+          "hata": 1,
+          "fp": 0
+        },
+        "p04-freespin-casino": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "p05-telegram-vip": {
+          "n": 6,
+          "hata": 0,
+          "fp": 0
+        },
+        "p06-marka-kod-link": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "p07-guncel-giris": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "p08-casino-slot": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "p09-dolayli-argo": {
+          "n": 7,
+          "hata": 1,
+          "fp": 0
+        },
+        "p10-canli-aciliyet": {
+          "n": 6,
+          "hata": 1,
+          "fp": 0
+        },
+        "p11-dekont-kanit": {
+          "n": 8,
+          "hata": 2,
+          "fp": 0
+        },
+        "p12-sansurlu": {
+          "n": 2,
+          "hata": 0,
+          "fp": 0
+        },
+        "p13-emoji-minimal": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "p14-farkli-turler": {
+          "n": 9,
+          "hata": 4,
+          "fp": 0
+        },
+        "p15-odeme-vurgulu": {
+          "n": 7,
+          "hata": 1,
+          "fp": 0
+        },
+        "p16-influencer-kod": {
+          "n": 7,
+          "hata": 0,
+          "fp": 0
+        },
+        "p17-ing-tr-karisik": {
+          "n": 3,
+          "hata": 0,
+          "fp": 0
+        }
+      },
+      "hatalar": [
+        {
+          "text": "hesabına bedava 300 TL yüklendi",
+          "label": 1,
+          "kategori": "p-sikayet",
+          "skor": 0.486
+        },
+        {
+          "text": "-TARAFBET sweet1000 https://shoort.im/tarafbet",
+          "label": 1,
+          "kategori": "p-telegram",
+          "skor": 0.538
+        },
+        {
+          "text": "Türkiye'nin en köklü ve en başarılı tahmin platformu tamamiyle ücretsiz. Yazarlarımızın tahmin ve yorumlarına bakmadan iddaa oynamayın.",
+          "label": 1,
+          "kategori": "p-telegram",
+          "skor": 0.172
+        },
+        {
+          "text": "-LAKEBAHIS lakede13temmuz https://lakegrs.link/lakegir",
+          "label": 1,
+          "kategori": "p-telegram",
+          "skor": 0.557
+        },
+        {
+          "text": "Sn. Müvekkilimiz, uzlaşma dosyanızın son günüdür. Lütfen tarafımızla iletişime geçiniz. S** hukuk 0312 000 00 00",
+          "label": 0,
+          "kategori": "n-sikayet",
+          "skor": 0.679
+        },
+        {
+          "text": "resmi yollardan düzenli olarak bahis oynuyorum. ne zaman kuponum yatsa bir kaç dakika içinde bu garabet sitelerden bana mesaj geliyor.",
+          "label": 0,
+          "kategori": "n-sikayet",
+          "skor": 0.951
+        },
+        {
+          "text": "Yasadışı bahis sitelerine operasyon – Günlük banko iddaa tahminleri",
+          "label": 0,
+          "kategori": "n-web",
+          "skor": 0.6
+        },
+        {
+          "text": "DİBS, Yİ-ÜFE ile yüzde 1,60, TÜFE ile yüzde 2,42 oranında reel kazanç sağladı",
+          "label": 0,
+          "kategori": "n04-mesru-finans",
+          "skor": 0.791
+        },
+        {
+          "text": "· 14:32 · 5 Tem 2025",
+          "label": 0,
+          "kategori": "n10-meta-veri",
+          "skor": 0.612
+        },
+        {
+          "text": "Eski cihazını getir, 600 TL'ye varan kupon kazan",
+          "label": 0,
+          "kategori": "n12-eticaret-kupon",
+          "skor": 0.743
+        },
+        {
+          "text": "Takımını canlı takip et",
+          "label": 0,
+          "kategori": "n16-fantezi-tahmin",
+          "skor": 0.646
+        },
+        {
+          "text": "BitValve 3.2$ + 0.2$, max 2 dakikada yap!",
+          "label": 0,
+          "kategori": "n17-kripto-airdrop",
+          "skor": 0.892
+        },
+        {
+          "text": "Nakit iadeler hiçbir şart olmadan da çekilebilir",
+          "label": 1,
+          "kategori": "p03-cevrimsiz-kayip",
+          "skor": 0.463
+        },
+        {
+          "text": "Dünden wonlarımız 🔥🔥",
+          "label": 1,
+          "kategori": "p09-dolayli-argo",
+          "skor": 0.197
+        },
+        {
+          "text": "Salı fırsatları seni bekliyor, bugün büyük kazanç için yeni fırsat!",
+          "label": 1,
+          "kategori": "p10-canli-aciliyet",
+          "skor": 0.483
+        },
+        {
+          "text": "3.000 yatırdım bakiye 354 bine çıktı, hâlâ inanamıyorum",
+          "label": 1,
+          "kategori": "p11-dekont-kanit",
+          "skor": 0.15
+        },
+        {
+          "text": "Bugün 3 üyemiz toplam 300 bin çekti, sıradaki sen ol",
+          "label": 1,
+          "kategori": "p11-dekont-kanit",
+          "skor": 0.147
+        },
+        {
+          "text": "Pazar poker turnuvasında dev ödül havuzu, koltuğunu ayırt.",
+          "label": 1,
+          "kategori": "p14-farkli-turler",
+          "skor": 0.517
+        },
+        {
+          "text": "Altılı ganyanı tuttur, dev ikramiyeyi kap! Günün banko atları bültende.",
+          "label": 1,
+          "kategori": "p14-farkli-turler",
+          "skor": 0.501
+        },
+        {
+          "text": "Hızlı tombalada her 3 dakikada bir çekiliş, şanslı numaranı bul kazan.",
+          "label": 1,
+          "kategori": "p14-farkli-turler",
+          "skor": 0.06
+        },
+        {
+          "text": "Tombala kartların hazır mı? Çinko ve tombalayı kap, ikramiye senin.",
+          "label": 1,
+          "kategori": "p14-farkli-turler",
+          "skor": 0.459
+        },
+        {
+          "text": "Yatırdığın para saniyeler içinde hesabına dönüyor",
+          "label": 1,
+          "kategori": "p15-odeme-vurgulu",
+          "skor": 0.515
+        }
+      ]
     },
-    {
-      "text": "tek maçla ayı kurtarma dönemi başladı 😎 hoca hangi siteyi kullandığını da söylüyor, gel takıl",
-      "label": 1,
-      "kategori": "dolayli-argo",
-      "skor": 0.079
-    },
-    {
-      "text": "oran patlatma servisi acildi, dun 3 kisi araba parasi kaldirdi, sen de kos 🏃",
-      "label": 1,
-      "kategori": "dolayli-argo",
-      "skor": 0.607
+    "kabul_saha.jsonl": {
+      "metrikler": {
+        "dogruluk": 0.8987,
+        "f1": 0.6667,
+        "yanlis_pozitif": 6,
+        "yanlis_negatif": 2,
+        "tuzak_fp": 0
+      },
+      "dilimler": {
+        "ebubekir-cihaz-fp": {
+          "n": 8,
+          "hata": 0,
+          "fp": 0
+        },
+        "gri-baglam-belirsiz": {
+          "n": 2,
+          "hata": 2,
+          "fp": 2
+        },
+        "saha-bagimlilik-uyari": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-cerez-izin": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-ciplak-url": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-erisim-engeli": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-haber-url-genel": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-haber-url-operasyon": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-haber-url-para": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-kumar-hakkinda-haber": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-magdur-anlati": {
+          "n": 5,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-mesru-kampanya": {
+          "n": 5,
+          "hata": 3,
+          "fp": 3
+        },
+        "saha-meta-veri": {
+          "n": 4,
+          "hata": 0,
+          "fp": 0
+        },
+        "saha-urlli-tesvik": {
+          "n": 10,
+          "hata": 2,
+          "fp": 0
+        },
+        "saha-uyelik-kalip": {
+          "n": 5,
+          "hata": 1,
+          "fp": 1
+        }
+      },
+      "hatalar": [
+        {
+          "text": "Kanal linkini dm atsana",
+          "label": 0,
+          "kategori": "gri-baglam-belirsiz",
+          "skor": 0.956
+        },
+        {
+          "text": "Kanal linkini bana dm atarsın",
+          "label": 0,
+          "kategori": "gri-baglam-belirsiz",
+          "skor": 0.937
+        },
+        {
+          "text": "İlk kupon bizden, sipariş ver kuponlar katlansın.",
+          "label": 0,
+          "kategori": "saha-mesru-kampanya",
+          "skor": 0.826
+        },
+        {
+          "text": "Ek 200 TL Kupon",
+          "label": 0,
+          "kategori": "saha-mesru-kampanya",
+          "skor": 0.641
+        },
+        {
+          "text": "İzlemeye hazır mısınız? Üye olmak ya da hesabınıza tekrar ulaşmak için tek yapmanız gereken e-posta adresinizi girmek.",
+          "label": 0,
+          "kategori": "saha-mesru-kampanya",
+          "skor": 0.642
+        },
+        {
+          "text": "zaten üye misin? giriş yap",
+          "label": 0,
+          "kategori": "saha-uyelik-kalip",
+          "skor": 0.9
+        },
+        {
+          "text": "-BETMILYONER BETMİLYONERGELDİ24 https://tiklagit.net/betmilyoner",
+          "label": 1,
+          "kategori": "saha-urlli-tesvik",
+          "skor": 0.088
+        },
+        {
+          "text": "-MAVIBET MAVIDEHEDIYENVAR http://dub.is/maviguncel",
+          "label": 1,
+          "kategori": "saha-urlli-tesvik",
+          "skor": 0.56
+        }
+      ],
+      "izleme_cekismeli_fp": 3,
+      "izleme_cekismeli_fp_orani": 0.088
     }
-  ],
-  "hatalar_gercek": [
-    {
-      "text": "Seni Özledik! 2.500 TL Bonus",
-      "label": 1,
-      "kategori": "p-sikayet",
-      "skor": 0.389
-    },
-    {
-      "text": "yükleme yap, 5000 TL çek",
-      "label": 1,
-      "kategori": "p-sikayet",
-      "skor": 0.437
-    },
-    {
-      "text": "hesap aç 500 TL Bonus",
-      "label": 1,
-      "kategori": "p-sikayet",
-      "skor": 0.485
-    },
-    {
-      "text": "hesabına bedava 300 TL yüklendi",
-      "label": 1,
-      "kategori": "p-sikayet",
-      "skor": 0.058
-    },
-    {
-      "text": "FreeSpin kazandınız",
-      "label": 1,
-      "kategori": "p-sikayet",
-      "skor": 0.239
-    },
-    {
-      "text": "Türkiye'nin en köklü ve en başarılı tahmin platformu tamamiyle ücretsiz. Yazarlarımızın tahmin ve yorumlarına bakmadan iddaa oynamayın.",
-      "label": 1,
-      "kategori": "p-telegram",
-      "skor": 0.058
-    },
-    {
-      "text": "resmi yollardan düzenli olarak bahis oynuyorum. ne zaman kuponum yatsa bir kaç dakika içinde bu garabet sitelerden bana mesaj geliyor.",
-      "label": 0,
-      "kategori": "n-sikayet",
-      "skor": 0.97
-    }
-  ]
+  }
 }
