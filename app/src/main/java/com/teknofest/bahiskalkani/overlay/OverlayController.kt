@@ -45,14 +45,39 @@ class OverlayController(
     fun update(targets: List<CoverTarget>) {
         val wantedKeys = targets.mapTo(mutableSetOf()) { it.key }
         covers.keys.filter { it !in wantedKeys }.forEach(::removeCover)
+        var newCoverAdded = false
         for (target in targets) {
             val existing = covers[target.key]
             when {
-                existing == null -> addCover(target)
+                existing == null -> {
+                    addCover(target)
+                    newCoverAdded = true
+                }
                 existing.target.bounds != target.bounds -> moveCover(existing, target)
             }
         }
         updateChip()
+        if (newCoverAdded) restackTouchables()
+    }
+
+    /**
+     * Aynı pencere türünde üstte olan = son eklenen. Yeni bir kapak (scrim)
+     * eklendiğinde daha önce eklenmiş butonların/çipin ÜSTÜNE binebiliyor;
+     * buton kapağın altında kalınca görünmüyor ve dokunuş kapaktan geçip
+     * alttaki uygulamaya gidiyor. Bu yüzden her yeni kapaktan sonra
+     * dokunulabilir pencereler en üste yeniden dizilir.
+     */
+    private fun restackTouchables() {
+        for (cover in covers.values) {
+            cover.button?.let {
+                windowManager.removeView(it)
+                windowManager.addView(it, buttonParams(it, cover.target.bounds))
+            }
+        }
+        chip?.let {
+            windowManager.removeView(it)
+            windowManager.addView(it, chipParams())
+        }
     }
 
     fun clear() {

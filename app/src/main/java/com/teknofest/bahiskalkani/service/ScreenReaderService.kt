@@ -4,12 +4,15 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.teknofest.bahiskalkani.BuildConfig
-import com.teknofest.bahiskalkani.detection.Detector
 import com.teknofest.bahiskalkani.detection.KeywordDetector
+import com.teknofest.bahiskalkani.detection.SurfaceContext
+import com.teknofest.bahiskalkani.detection.SurfaceGuard
 import com.teknofest.bahiskalkani.detection.TfLiteDetector
 import com.teknofest.bahiskalkani.overlay.CoverTarget
 import com.teknofest.bahiskalkani.overlay.OverlayController
@@ -19,7 +22,12 @@ class ScreenReaderService : AccessibilityService() {
 
     // Faz 1 kelime listesi + Faz 2 TFLite modeli birlikte çalışır:
     // ikisinden biri "evet" derse içerik engellenir (liste güvenlik ağı).
-    private lateinit var detector: Detector
+    // SurfaceGuard yüzey kapısıdır: sistem/UI metinlerini modelden uzak
+    // tutar ve yüzeye göre eşik seçer (WhatsApp sıkı, tarayıcı normal).
+    private lateinit var keyword: KeywordDetector
+    private lateinit var model: TfLiteDetector
+    private val guard = SurfaceGuard()
+    private var currentPackage: String? = null
     private lateinit var overlay: OverlayController
 
     // "Yine de göster" denilen içerikler; KVKK gereği yalnızca bellekte
@@ -28,6 +36,9 @@ class ScreenReaderService : AccessibilityService() {
 
     // Sayaç her benzersiz içeriği bir kez saysın diye
     private val countedHashes = mutableSetOf<Int>()
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val scanRunnable = Runnable { runScan() }
 
     // Hiç taranmayacak paketler; launcher onServiceConnected'da eklenir
     private val skippedPackages = mutableSetOf(
@@ -54,18 +65,8 @@ class ScreenReaderService : AccessibilityService() {
             PackageManager.MATCH_DEFAULT_ONLY,
         )?.activityInfo?.packageName?.let { skippedPackages.add(it) }
 
-        val keyword = KeywordDetector.fromAssets(this)
-        val model = TfLiteDetector.fromAssets(this)
-        // Ucuz kontrol önde: kelime listesi eşleşirse model hiç çağrılmaz.
-        // Model yalnızca yeterince uzun metinlerde çalışır: "Kanal23 · 4g"
-        // gibi kısa kaynak etiketlerinde bağlam yok, model yanılıyor
-        // ("kanal" kelimesini Telegram davetlerinden teşvik sinyali öğrendi).
-        // Çıplak URL kapısı ve meta-veri süzgeci artık TfLiteDetector'ın
-        // İÇİNDE (v2); serviste yalnızca kısa metin muafiyeti kaldı.
-        detector = Detector { text ->
-            keyword.isBettingContent(text) ||
-                (text.length >= MODEL_MIN_CHARS && model.isBettingContent(text))
-        }
+        keyword = KeywordDetector.fromAssets(this)
+        model = TfLiteDetector.fromAssets(this)
         overlay = OverlayController(
             this,
             onShowAnyway = { target -> allowedHashes.add(target.textHash) },
@@ -84,6 +85,14 @@ class ScreenReaderService : AccessibilityService() {
         // Kendi overlay pencerelerimizin ürettiği olaylarla uğraşma
         if (event.packageName == packageName) return
 
+        // Olay fırtınası sönümleme: sayfa geçişlerinde onlarca olay art arda
+        // gelir; her biri için tam ağaç taraması yapmak tepki süresini
+        // dalgalandırıyor. Fırtına durulunca TEK tarama yapılır.
+        handler.removeCallbacks(scanRunnable)
+        handler.postDelayed(scanRunnable, SCAN_DEBOUNCE_MS)
+    }
+
+    private fun runScan() {
         val root = rootInActiveWindow
         if (root == null) {
             overlay.clear()
@@ -98,16 +107,19 @@ class ScreenReaderService : AccessibilityService() {
             overlay.clear()
             return
         }
+        currentPackage = rootPackage
         val targets = mutableListOf<CoverTarget>()
         scan(root, targets)
         overlay.update(targets)
     }
 
     override fun onInterrupt() {
+        handler.removeCallbacks(scanRunnable)
         if (::overlay.isInitialized) overlay.clear()
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(scanRunnable)
         if (::overlay.isInitialized) overlay.clear()
         super.onDestroy()
     }
@@ -131,7 +143,18 @@ class ScreenReaderService : AccessibilityService() {
         val text = node.text?.toString() ?: ""
         if (text.isNotBlank()) {
             val hash = text.hashCode()
-            val isBetting = decisionCache.getOrPut(hash) { detector.isBettingContent(text) }
+            val ctx = SurfaceContext(
+                packageName = currentPackage,
+                nodeClassName = node.className?.toString(),
+            )
+            // Önbellek anahtarı metin + yüzey ikilisi: aynı metin farklı
+            // uygulamada farklı eşiğe tabi olabilir
+            val isBetting = decisionCache.getOrPut(guard.decisionCacheKey(text, ctx)) {
+                keyword.isBettingContent(text) ||
+                    (text.length >= MODEL_MIN_CHARS &&
+                        !guard.shouldBypassModel(text, ctx) &&
+                        model.isBettingContent(text, guard.thresholdFor(text, ctx)))
+            }
             if (!isBetting) {
                 scanChildren(node, out)
                 return
@@ -171,5 +194,9 @@ class ScreenReaderService : AccessibilityService() {
 
         // Karar önbelleği üst sınırı (hash + boolean; metin tutulmaz)
         const val CACHE_LIMIT = 500
+
+        // Olay fırtınası sönümleme süresi: son olaydan bu kadar ms sonra
+        // tek tarama yapılır (100 ms'lik olay aralığının altında kalmalı)
+        const val SCAN_DEBOUNCE_MS = 60L
     }
 }

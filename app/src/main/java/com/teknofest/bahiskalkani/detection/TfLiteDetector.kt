@@ -7,23 +7,24 @@ import org.json.JSONObject
 import org.tensorflow.lite.Interpreter
 
 /**
- * Faz 2 tespitçisi (v2): karakter seviyesi TFLite modeliyle 0..1 "bahse
- * teşvik" skoru üretir; ek olarak saha yanlış alarmlarına karşı üç koruma
- * katmanı içerir (13 Tem cihaz testi bulguları üzerine):
+ * Faz 2 tespitçisi (v3): karakter seviyesi TFLite topluluk modeliyle 0..1
+ * "bahse teşvik" skoru üretir; saha yanlış alarmlarına karşı koruma
+ * katmanları içerir:
  *
  *  1. URL kanalı: URL'ler modele HAM verilmez. Meşru alan adları
  *     (assets/mesru_alanlar.json) metinden silinir; kalan URL'ler tek 🔗
- *     jetonuna indirgenir. Model "https://" desenini ezberleyemez.
+ *     jetonuna indirgenir.
  *  2. Çıplak URL kapısı: URL'ler çıkarılınca geriye anlamlı metin
  *     kalmıyorsa hiç alarm üretilmez (modele de sorulmaz).
  *  3. Meta-veri süzgeci: "780+ beğenme · 2 hafta önce" gibi salt
- *     sayaç/zaman metinleri modele sorulmadan temiz sayılır.
+ *     sayaç/zaman metinleri ve tarayıcı üretimi sabit metinler ("IP
+ *     adresinizden" konum alt bilgisi) modele sorulmadan temiz sayılır.
  *
- * Ön işleme, model/spec/ON_ISLEME.md (v2) sözleşmesiyle birebir aynı olmak
- * ZORUNDA — URL regex'i dahil değişiklik Python tarafıyla birlikte yapılır.
- * Asset'lerin kaynağı model/cikti/ + model/data/mesru_alanlar.json; model
- * yeniden eğitilirse kopyalar ve [VARSAYILAN_ESIK] (esik_karari.json)
- * birlikte güncellenir.
+ * Ön işleme, model/spec/ON_ISLEME.md (v3) sözleşmesiyle birebir aynı olmak
+ * ZORUNDA — URL regex'i ve fold haritası dahil değişiklik Python tarafıyla
+ * birlikte yapılır. DİKKAT: v3 ön işleme yalnız v3 sözlüğüyle (surum 3)
+ * eğitilmiş modelle çalışır; model + sözlük + bu dosya BİRLİKTE güncellenir.
+ * Asset kaynağı: model/cikti/ + model/data/mesru_alanlar.json.
  *
  * Not: Interpreter iş parçacığı güvenli değildir; servis ana akışından
  * (tek iş parçacığı) çağrılmak üzere tasarlandı.
@@ -40,12 +41,16 @@ class TfLiteDetector(
     private val input = Array(1) { IntArray(maxLen) }
     private val output = Array(1) { FloatArray(1) }
 
-    override fun isBettingContent(text: String): Boolean {
+    override fun isBettingContent(text: String): Boolean = isBettingContent(text, threshold)
+
+    /** Yüzeye göre eşikle karar (SurfaceGuard.thresholdFor ile kullanılır);
+     *  koruma katmanları eşikten bağımsız aynıdır. */
+    fun isBettingContent(text: String, esik: Float): Boolean {
         if (isMetadata(text)) return false                       // katman 3
-        val normalized = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
+        val normalized = normalizeUrls(fold(Normalizer.normalize(text, Normalizer.Form.NFC)))
         val kalan = normalized.replace(URL_TOKEN, " ").trim()
         if (kalan.length < 3) return false                       // katman 2 (çıplak URL)
-        return score(normalized) >= threshold
+        return score(normalized) >= esik
     }
 
     /** 0..1 arası teşvik skoru — eşik kalibrasyonu ve hata ayıklama için açık.
@@ -66,20 +71,45 @@ class TfLiteDetector(
             if (alan in mesruAlanlar) " " else " $URL_TOKEN "
         }
 
-    /** Katman 3: '·' ile ayrılmış her parça sayaç/zaman/buton kalıbıysa meta-veridir. */
+    /** Katman 3: '·' ile ayrılmış her parça sayaç/zaman/buton kalıbıysa
+     *  meta-veridir; tarayıcı üretimi sabit metinler de burada elenir. */
     private fun isMetadata(text: String): Boolean {
         val t = text.trim()
         if (t.length > 64) return false
+        if (SISTEM_METNI_KALIPLARI.any { it.containsMatchIn(t) }) return true
         val parcalar = t.split('·', '•', '|').map { it.trim() }.filter { it.isNotEmpty() }
         return parcalar.isNotEmpty() && parcalar.all { p ->
             META_KALIPLARI.any { it.matches(p) }
         }
     }
 
-    /** spec/ON_ISLEME.md v2: NFC → URL normalizasyonu → tr küçük harf →
-     *  U+0307 temizliği → kodpoint→id → 192'ye kes/doldur. */
+    /** spec §FOLD (v3): tipografik katlama + U+FE0F silme — train.py fold()
+     *  ile BİREBİR aynı harita. İdempotenttir; tüm karakterler BMP olduğu
+     *  için Char döngüsü güvenlidir (emoji vekil çiftleri değişmeden geçer). */
+    private fun fold(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (ch in text) {
+            when (ch) {
+                '\uFE0F' -> {}                             // varyasyon seçicisi: sil
+                '\u00A0' -> sb.append(' ')                 // NBSP
+                '’', '‘', '´', '`' -> sb.append('\'')
+                '“', '”', '«', '»', '„' -> sb.append('"')
+                '–', '—' -> sb.append('-')
+                '…' -> sb.append("...")
+                '•', '·' -> sb.append('.')
+                'â', 'Â' -> sb.append('a')
+                'î', 'Î' -> sb.append('i')
+                'û', 'Û' -> sb.append('u')
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
+
+    /** spec/ON_ISLEME.md v3: NFC → fold → URL normalizasyonu → tr küçük harf
+     *  → U+0307 temizliği → kodpoint→id → 192'ye kes/doldur. */
     private fun preprocess(text: String, dest: IntArray) {
-        val lower = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
+        val lower = normalizeUrls(fold(Normalizer.normalize(text, Normalizer.Form.NFC)))
             .lowercase(turkish)
             .replace("̇", "")
         var i = 0
@@ -115,13 +145,21 @@ class TfLiteDetector(
             Regex("^\\d+\\s*/\\s*\\d+$"),
         )
 
-        /** Önerilen eşik — v8 (13 Tem): ÜRETİM SİSTEMİ (kesin-kelime VEYA
-         *  model) taramasının FP dizininden insan kararıyla seçildi
-         *  (model/esik_karari.json — yeniden eğitim bu kararı ezmez).
-         *  @0.60: sözleşme %99, gerçek-391 %94.4 (recall %92), bildirilen
-         *  üretim hatalarında 0 FP, INV-URL 0 ihlal, ~0.09 ms/metin.
-         *  Precision'ı daha artırmak için 0.65 (saha FP 2, recall %89). */
-        const val VARSAYILAN_ESIK = 0.60f
+        /** Tarayıcı/işletim sistemi üretimi sabit metinler — kullanıcı
+         *  içeriği değil, hiçbir zaman teşvik olamaz. Ör. Chrome'un adres
+         *  çubuğu konum alt bilgisi: "23350, Elazığ - IP adresinizden". */
+        private val SISTEM_METNI_KALIPLARI = listOf(
+            Regex("(?i)ip\\s*adresinizden"),
+        )
+
+        /** Önerilen eşik — v10.4 (18 Tem): insan kararı, esik_karari.json ile
+         *  eşitlenir. İki BAĞIMSIZ artefaktta 0.70-0.90 penceresi sürüm
+         *  kapısının üç koşulunu da geçti; 0.70 = pencerenin recall-dostu
+         *  ucu. @0.70 resmi kayıt (cikti/esik.json): sözleşme %100 (tuzak 0),
+         *  gerçek-391 %94.9 (FP 1), saha bildirilen 0 FP + çekişmeli 0/34,
+         *  INV-URL 0 ihlal, ~0.3 ms. Yüzeye göre daha sıkı eşikler
+         *  SurfaceGuard'da. */
+        const val VARSAYILAN_ESIK = 0.70f
 
         fun fromAssets(context: Context, threshold: Float = VARSAYILAN_ESIK): TfLiteDetector {
             val model = context.assets.open("model.tflite").readBytes()
