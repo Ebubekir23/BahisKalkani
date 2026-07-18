@@ -21,11 +21,14 @@ import org.tensorflow.lite.Interpreter
  *     sayaç/zaman metinleri modele sorulmadan temiz sayılır.
  *
  * REFERANS İMPLEMENTASYON — model/kotlin/ altından app'e Ebubekir taşıyacak.
- * Gerekli asset'ler: assets/model.tflite, assets/model_vocab.json (surum 2),
+ * Gerekli asset'ler: assets/model.tflite, assets/model_vocab.json (surum 3),
  * assets/mesru_alanlar.json. Bağımlılık: com.google.ai.edge.litert:litert:1.2.0
  *
- * Ön işleme spec'i: model/spec/ON_ISLEME.md (v2) — Python tarafıyla birebir
- * aynı olmak ZORUNDA; URL regex'i dahil değişiklik iki tarafta birden yapılır.
+ * Ön işleme spec'i: model/spec/ON_ISLEME.md (v3) — Python tarafıyla birebir
+ * aynı olmak ZORUNDA; URL regex'i ve fold haritası dahil değişiklik iki
+ * tarafta birden yapılır. v3 = v2 + fold adımı (tipografik katlama + U+FE0F
+ * silme); sözlüğe SONA 10 emoji eklendi — id'ler kaymadı ve sözlük
+ * model_vocab.json'dan dinamik okunduğu için burada kod değişikliği yok.
  *
  * Serviste kullanım (değişmedi): keyword.isBettingContent(t) || model.isBettingContent(t)
  * Not: Interpreter iş parçacığı güvenli değildir; servis ana akışından çağrılır.
@@ -44,7 +47,7 @@ class TfLiteDetector(
 
     override fun isBettingContent(text: String): Boolean {
         if (isMetadata(text)) return false                       // katman 3
-        val normalized = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
+        val normalized = normalizeUrls(fold(Normalizer.normalize(text, Normalizer.Form.NFC)))
         val kalan = normalized.replace(URL_TOKEN, " ").trim()
         if (kalan.length < 3) return false                       // katman 2 (çıplak URL)
         return score(normalized) >= threshold
@@ -78,10 +81,33 @@ class TfLiteDetector(
         }
     }
 
-    /** spec/ON_ISLEME.md v2: NFC → URL normalizasyonu → tr küçük harf →
-     *  U+0307 temizliği → kodpoint→id → 192'ye kes/doldur. */
+    /** spec §FOLD (v3): tipografik katlama + U+FE0F silme — train.py fold()
+     *  ile BİREBİR aynı harita. İdempotenttir; tüm karakterler BMP olduğu
+     *  için Char döngüsü güvenlidir (emoji vekil çiftleri değişmeden geçer). */
+    private fun fold(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (ch in text) {
+            when (ch) {
+                '\uFE0F' -> {}                                   // varyasyon seçicisi: sil
+                '\u00A0' -> sb.append(' ')                       // NBSP
+                '’', '‘', '´', '`' -> sb.append('\'')
+                '“', '”', '«', '»', '„' -> sb.append('"')
+                '–', '—' -> sb.append('-')
+                '…' -> sb.append("...")
+                '•', '·' -> sb.append('.')
+                'â', 'Â' -> sb.append('a')
+                'î', 'Î' -> sb.append('i')
+                'û', 'Û' -> sb.append('u')
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
+
+    /** spec/ON_ISLEME.md v3: NFC → fold → URL normalizasyonu → tr küçük harf
+     *  → U+0307 temizliği → kodpoint→id → 192'ye kes/doldur. */
     private fun preprocess(text: String, dest: IntArray) {
-        val lower = normalizeUrls(Normalizer.normalize(text, Normalizer.Form.NFC))
+        val lower = normalizeUrls(fold(Normalizer.normalize(text, Normalizer.Form.NFC)))
             .lowercase(turkish)
             .replace("̇", "")
         var i = 0
@@ -117,16 +143,17 @@ class TfLiteDetector(
             Regex("^\\d+\\s*/\\s*\\d+$"),
         )
 
-        /** Önerilen eşik — v8 (13 Tem): ÜRETİM SİSTEMİ (kesin-kelime VEYA
-         *  model) taramasının FP dizininden (knee) insan kararıyla seçildi.
-         *  Nadir-pozitif dağılımda yanlış alarm baskın maliyet olduğundan
-         *  precision öne alındı. @0.60: sözleşme %99, gerçek-391 %94.4
-         *  (recall %92), saha regresyon kapı FP 4, INV-URL 0 ihlal, ~0.09ms.
-         *  Kalan 4 saha FP indirgenemez ikircikli (meşru kupon/kampanya,
-         *  üyelik CTA) — bağlam gerektirir, uygulama-bazlı eşik (paket adına
-         *  göre) ile çözülür (Ebubekir; bkz. YOL_HARITASI). Precision'ı daha
-         *  artırmak için 0.65 (saha FP 2, recall %89). */
-        const val VARSAYILAN_ESIK = 0.60f
+        /** Önerilen eşik — v10.4 (18 Tem): insan kararı, esik_karari.json ile
+         *  eşitlenir. İki BAĞIMSIZ artefaktta 0.70-0.90 penceresi sürüm
+         *  kapısının üç koşulunu da geçti; 0.70 = pencerenin recall-dostu
+         *  ucu (nadir-pozitif dağılımda precision öncelikli, v8 doktrini).
+         *  @0.70 resmi kayıt (cikti/esik.json): sözleşme %100 (tuzak 0),
+         *  gerçek-391 %94.9 (FP 1), saha bildirilen 0 FP + çekişmeli 0/34,
+         *  INV-URL 0 ihlal, ~0.3 ms. Kalan tek bilinen sınır: forum üyelik
+         *  duvarı kalıbı (0.693) — bağlam işi; forum/yorum yüzeyi SurfaceGuard
+         *  ile korunur (bkz. model/oneriler/). Bu model v3 ön işleme +
+         *  model_vocab surum 3 ile BİRLİKTE taşınır. */
+        const val VARSAYILAN_ESIK = 0.70f
 
         fun fromAssets(context: Context, threshold: Float = VARSAYILAN_ESIK): TfLiteDetector {
             val model = context.assets.open("model.tflite").readBytes()

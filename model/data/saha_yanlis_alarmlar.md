@@ -42,3 +42,26 @@ karışımı pozitifler kalmalı.
 Yani v6'nın hedefi uzun-metin kalıpları (haber+URL karışık başlıklar,
 meta veri, forum kalıbı); kısa metin, ikon ve çıplak URL kaynaklı alarmlar
 uygulama tarafında çözüldü.
+
+## V9 saha bulguları (16 Temmuz): uygulama entegrasyonu sonrası yeni FP aileleri
+
+Ekran görüntülerinde URL/haber değil, Android yüzeyi bilinmediği için yanlış
+blurlanan aileler görüldü. Kök neden: model `grup`, `katıl`, `kupon`, `puan`,
+`TL`, `kod`, `IBAN`, `link` gibi bahis dünyasında güçlü sinyalleri WhatsApp
+sistem mesajı, LinkedIn profil, yemek uygulaması, form/kod/PDF önizleme
+yüzeylerinde de risk sanabiliyor.
+
+Eklenen çözüm iki katmanlıdır:
+
+- `kabul_saha.jsonl`: yeni exact/maskeli FP aileleri `bildirilen` seviyesinde
+  regresyon kapısına eklendi; karşı riskli pozitifler `cekismeli` izleme satırı
+  olarak eklendi.
+- `egitim.jsonl`, `gercek.jsonl`, `kalibrasyon.jsonl`: aynı ailelerin
+  genelleştirilmiş negatifleri ve riskli karşı pozitifleri sınırlı sayıda
+  eklendi. Amaç exact ekranı ezberletmek değil, yüzey bağlamındaki masum
+  kullanımları öğretmektir.
+
+Android tarafında eklenen `SurfaceGuard` paketleri komple muaf tutmaz. Sadece
+bahis risk anchor'ı yoksa WhatsApp sistem mesajı, kod/form/PDF, LinkedIn profil
+ve yemek kuponu gibi düşük riskli yüzeyleri modelden önce temiz sayar; riskli
+anchor varsa karar keyword/model yoluna gider.

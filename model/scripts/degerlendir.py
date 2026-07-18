@@ -21,6 +21,7 @@ rapor edilir (aynı sette seçim+rapor iyimser sapma yaratır).
 """
 
 import json
+import re
 import sys
 import time
 from collections import defaultdict
@@ -38,7 +39,7 @@ DATA = MODEL_DIR / "data"
 
 sys.path.insert(0, str(Path(__file__).parent))
 from train import MAX_LEN, preprocess  # noqa: E402  (ön işleme tek kaynak)
-from kelime import keyword_isbetting  # noqa: E402  (üretim: kesin-kelime VEYA model)
+from kelime import KESIN, IGNORED, keyword_isbetting  # noqa: E402  (üretim: kesin-kelime VEYA model)
 
 SETLER = [
     ("kabul_testi.jsonl", "Sözleşme (sentetik)"),
@@ -54,7 +55,8 @@ INV_URLLER = ["https://ornek-gunluk-blog.net", "www.yemektarifleri-ornek.com"]
 def load_interpreter():
     import tensorflow as tf
 
-    interp = tf.lite.Interpreter(model_path=str(CIKTI / "model.tflite"))
+    # model_content: Türkçe karakterli Windows yollarında model_path açılmıyor
+    interp = tf.lite.Interpreter(model_content=(CIKTI / "model.tflite").read_bytes())
     interp.resize_tensor_input(interp.get_input_details()[0]["index"], [1, MAX_LEN])
     interp.allocate_tensors()
     return interp
@@ -85,10 +87,52 @@ def metrikler(pred, y, tuzak) -> dict:
     }
 
 
+# v10: tetikleyici-terim raporu (Dixon/Jigsaw deseni) — toplam doğruluk
+# yüksekken tek terimin (ör. "kupon") masum bağlamlarda sistematik FP
+# ürettiğini görünür kılar. v10.3: (a) alt-dizge yerine KELİME SINIRLI regex
+# ("şampuan" artık "puan" sayılmaz, "tl" yalnız kelime olarak), (b) katıl/katil
+# ayrımı ("katil\b" gerçek kelime, "katil\w" katıl-türevleri — fold ı→i yapar),
+# (c) v10.3 veri turunun FN aileleri eklendi (spin/tombala/poker/papara),
+# (d) FP'nin yanına pozitif taraf FN sayısı da rapor edilir (recall görünürlüğü).
+TERIMLER = [
+    ("kupon", r"\bkupon"), ("puan", r"\bpuan"), ("grup", r"\bgrup"),
+    ("katıl", r"\bkatil\w"), ("katil", r"\bkatil\b"),
+    ("tl", r"\btl\b"), ("iban", r"\biban\b"), ("link", r"\blink"),
+    ("bonus", r"\bbonus"), ("kanal", r"\bkanal"), ("üye", r"\buye"),
+    ("spin", r"\bspin|freespin"), ("tombala", r"\btombala"),
+    ("poker", r"\bpoker"), ("papara", r"\bpapara"),
+]
+_TERIM_RX = [(ad, re.compile(rx)) for ad, rx in TERIMLER]
+_FOLD = str.maketrans({"ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u"})
+
+
+def _fold(t: str) -> str:
+    return t.replace("İ", "i").replace("I", "ı").lower().translate(_FOLD)
+
+
+def terim_raporu(rows, pred) -> dict:
+    rapor = {}
+    katli = [_fold(r["text"]) for r in rows]
+    for ad, rx in _TERIM_RX:
+        neg_idx = [i for i, r in enumerate(rows) if r["label"] == 0 and rx.search(katli[i])]
+        poz_idx = [i for i, r in enumerate(rows) if r["label"] == 1 and rx.search(katli[i])]
+        if neg_idx or poz_idx:
+            rapor[ad] = {"negatif": len(neg_idx),
+                         "fp": int(sum(1 for i in neg_idx if pred[i])),
+                         "pozitif": len(poz_idx),
+                         "fn": int(sum(1 for i in poz_idx if not pred[i]))}
+    return rapor
+
+
 def seti_kos(interp, dosya: Path, esik: float, ad: str):
     """Bir seti ÜRETİM SİSTEMİYLE (kesin-kelime VEYA model) koşar; genel +
-    dilim (kategori) raporu üretir. Ölçüm, sahada çalışan bileşimi yansıtır."""
-    rows = [json.loads(l) for l in dosya.read_text(encoding="utf-8").splitlines() if l.strip()]
+    dilim (kategori) raporu üretir. Ölçüm, sahada çalışan bileşimi yansıtır.
+    v10.3: gri işaretli satırlar (etiketi ekipçe belirsiz) TÜM hesaplardan
+    baştan çıkarılır — eskiden yalnız kapı hesabı dışlıyordu, başlık
+    metrikleri gri satırları içeriyordu (kod-inceleme bulgusu)."""
+    rows_tum = [json.loads(l) for l in dosya.read_text(encoding="utf-8").splitlines() if l.strip()]
+    gri_sayisi = sum(1 for r in rows_tum if r.get("gri"))
+    rows = [r for r in rows_tum if not r.get("gri")]
     texts = [r["text"] for r in rows]
     y = np.array([r["label"] for r in rows])
     tuzak = np.array([bool(r.get("tuzak")) for r in rows])
@@ -98,7 +142,8 @@ def seti_kos(interp, dosya: Path, esik: float, ad: str):
 
     m = metrikler(pred, y, tuzak)
     kw_katki = int((kw & (y == 1)).sum())
-    print(f"\n=== {ad}: {len(rows)} örnek ({int(y.sum())} poz, {int(tuzak.sum())} tuzak)")
+    print(f"\n=== {ad}: {len(rows)} örnek ({int(y.sum())} poz, {int(tuzak.sum())} tuzak"
+          + (f"; gri {gri_sayisi} örnek TÜM hesaplardan hariç" if gri_sayisi else "") + ")")
     print(f"  Sistem @ {esik} (kesin-kelime VEYA model): doğruluk {m['dogruluk']:.1%}, "
           f"F1 {m['f1']:.3f}, FP {m['yanlis_pozitif']}, FN {m['yanlis_negatif']}, "
           f"tuzak FP {m['tuzak_fp']}  (kelime katkısı: {kw_katki} poz)")
@@ -127,7 +172,17 @@ def seti_kos(interp, dosya: Path, esik: float, ad: str):
     ]
     for h in hatalar:
         print(f"    HATA [{h['kategori']}] skor={h['skor']} label={h['label']}: {h['text'][:76]}")
-    return m, dilim_raporu, hatalar, rows, scores
+
+    terimler = terim_raporu(rows, pred)
+    sorunlu_fp = {t: v for t, v in terimler.items() if v["fp"] > 0}
+    if sorunlu_fp:
+        print("    terim FP raporu: " + ", ".join(
+            f"{t}: {v['fp']}/{v['negatif']}" for t, v in sorted(sorunlu_fp.items())))
+    sorunlu_fn = {t: v for t, v in terimler.items() if v["fn"] > 0}
+    if sorunlu_fn:
+        print("    terim FN raporu: " + ", ".join(
+            f"{t}: {v['fn']}/{v['pozitif']}" for t, v in sorted(sorunlu_fn.items())))
+    return m, dilim_raporu, hatalar, rows, scores, terimler, gri_sayisi
 
 
 def inv_url_testi(interp, rows, scores, esik: float) -> dict:
@@ -163,6 +218,17 @@ def main() -> None:
     rapor = json.loads((CIKTI / "egitim_raporu.json").read_text(encoding="utf-8"))
     esik = rapor["onerilen_esik"]
     print(f"Sabit eşik: {esik}  (kaynak: {rapor.get('esik_kaynagi', '?')})")
+    if rapor.get("duman_testi"):
+        print("### UYARI: egitim_raporu duman testinden (BK_SMOKE) — sonuçlar BAĞLAYICI DEĞİL ###")
+
+    # Kelime katmanı kanıtı: keywords.json bulunamazsa kelime katmanı sessizce
+    # kapanıyor ve 'sistem' ölçümü yalnız modele düşüyordu (kod-inceleme
+    # bulgusu — Colab'a yalnız model/ yüklendiğinde app/ yolu yoktur).
+    if not KESIN:
+        print("### UYARI: kelime katmanı BOŞ (keywords.json bulunamadı) — "
+              "'sistem' ölçümü YALNIZ MODEL! Kapı sonuçları üretimi temsil etmez. ###")
+    else:
+        print(f"Kelime katmanı: {len(KESIN)} kesin ifade, {len(IGNORED)} muafiyet ✓")
 
     interp = load_interpreter()
     sonuc, kapi = {}, {}
@@ -172,9 +238,10 @@ def main() -> None:
         yol = DATA / dosya
         if not yol.exists():
             continue
-        m, dilimler, hatalar, rows, scores = seti_kos(interp, yol, esik, ad)
+        m, dilimler, hatalar, rows, scores, terimler, gri_sayisi = seti_kos(interp, yol, esik, ad)
         sonuc[dosya] = {"metrikler": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in m.items()},
-                        "dilimler": dilimler, "hatalar": hatalar}
+                        "dilimler": dilimler, "hatalar": hatalar,
+                        "terim_raporu": terimler, "gri_haric": gri_sayisi}
         if dosya == "kabul_testi.jsonl":
             ana_rows, ana_scores = rows, scores
             kapi["sozlesme"] = m["dogruluk"] >= 0.9 and m["tuzak_fp"] == 0
@@ -209,6 +276,8 @@ def main() -> None:
     inv = inv_url_testi(interp, ana_rows, ana_scores, esik)
     kapi["inv_url"] = inv["ihlal"] == 0
 
+    kal_tani = kalibrasyon_tani(interp, esik)
+
     # --- gecikme
     metinler = [r["text"] for r in ana_rows]
     for t in metinler[:20]:
@@ -226,6 +295,11 @@ def main() -> None:
             {"esik": esik, "esik_kaynagi": rapor.get("esik_kaynagi"),
              "surum_kapisi": kapi, "hedef_karsilandi": basarili,
              "inv_url_testi": inv, "olcum_gecikme_ms": round(ms, 2),
+             "kelime_katmani": {"kesin": len(KESIN), "ignored": len(IGNORED)},
+             "kalibrasyon_tani": kal_tani,
+             "on_isleme_surumu": rapor.get("on_isleme_surumu"),
+             "veri_parmak_izi": rapor.get("veri_parmak_izi"),
+             "duman_testi": bool(rapor.get("duman_testi")),
              "setler": sonuc},
             ensure_ascii=False, indent=2,
         ),
@@ -235,6 +309,39 @@ def main() -> None:
     print(f"esik.json yazıldı. Hedef karşılandı mı: {'EVET' if basarili else 'HAYIR'}")
 
     colab_ciktilari_indir()
+
+
+def kalibrasyon_tani(interp, esik: float):
+    """Kalibrasyon setinde skor dağılımı teşhisi — eşik insan kararına girdi.
+    Kapıya GİRMEZ ve başarı iddiası değildir: eşik bu sette seçildiği için
+    buradaki metrikler iyimserdir (yalnız bant/denge görünürlüğü sağlar)."""
+    yol = DATA / "kalibrasyon.jsonl"
+    if not yol.exists():
+        return None
+    rows = [json.loads(l) for l in yol.read_text(encoding="utf-8").splitlines() if l.strip()]
+    scores = score_all(interp, [r["text"] for r in rows])
+    y = np.array([r["label"] for r in rows])
+    kw = np.array([keyword_isbetting(r["text"]) for r in rows])
+    pred = kw | (scores >= esik)
+    tp = int((pred & (y == 1)).sum())
+    fp = int((pred & (y == 0)).sum())
+    fn = int((~pred & (y == 1)).sum())
+    rec, prec = tp / max(1, tp + fn), tp / max(1, tp + fp)
+    bantlar = [0.0, 0.3, 0.6, 0.9, 1.01]
+    dagilim = {}
+    for ad_b, maske in [("poz", y == 1), ("neg", y == 0)]:
+        s = scores[maske]
+        dagilim[ad_b] = {
+            f"{bantlar[i]:.1f}-{min(bantlar[i + 1], 1.0):.1f}":
+                int(((s >= bantlar[i]) & (s < bantlar[i + 1])).sum())
+            for i in range(len(bantlar) - 1)
+        }
+    print(f"\n=== Kalibrasyon teşhisi ({len(rows)} örnek — tanı amaçlı, kapıya girmez)")
+    print(f"  sistem @ {esik}: recall {rec:.3f}, precision {prec:.3f}, FP {fp}, FN {fn}")
+    print(f"  skor bantları poz: {dagilim['poz']}")
+    print(f"  skor bantları neg: {dagilim['neg']}")
+    return {"n": len(rows), "recall": round(rec, 3), "precision": round(prec, 3),
+            "fp": fp, "fn": fn, "skor_bantlari": dagilim}
 
 
 def colab_ciktilari_indir() -> None:

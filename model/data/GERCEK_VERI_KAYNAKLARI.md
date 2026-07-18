@@ -1,7 +1,8 @@
 # Gerçek Veri Kaynakları ve Lisans Notları
 
-`gercek.jsonl` (2.856 eğitim örneği) ve `kabul_gercek.jsonl` (391 saha test
-örneği) 13 Temmuz 2026'da halka açık kaynaklardan çok turlu toplandı. Her
+`gercek.jsonl` (4.111 eğitim örneği) ve `kabul_gercek.jsonl` (391 saha test
+örneği) 13-18 Temmuz 2026 arasında halka açık kaynaklardan ve hedefli üretim
+turlarından çok turlu derlendi. Her
 satırın `kaynak`/`kategori` alanı kökenini taşır. Süreç her turda: toplama →
 temizlik + KVKK maskeleme → bağımsız (zorlarda çekişmeli) etiket denetimi →
 eğitim/kabul/kalibrasyon bölmesi (test setleri eğitimden ve sentetikten
@@ -15,8 +16,11 @@ kod düzeyinde ayrık — jenerelleme ölçülür, ezber değil).
 | V6 | Saha FP kalıpları: haber+URL, çıplak URL, meta veri, üyelik, kumar-hakkında | +419 |
 | V7 | Meşru kupon/kampanya + üyelik CTA + marka-kod-link | +143 |
 | V8 | 37 kategorili tam taksonomi (12 ★ yeni zor tuzak: gacha, çekiliş, piyango, fantezi lig, kripto airdrop, marka-haber, argo-masum, kısa-masum; emoji-minimal, farklı bahis türleri, ödeme, influencer, İng-Tr) | +1.132 (eğitim) + 271 (test) + 175 (kalibrasyon) |
+| V10-V10.2 | Saha FP ailelerinin genelleştirilmiş örnekleri (WhatsApp-sistem, LinkedIn, puan-kupon, uzun-dilim), karşı-olgusal çiftler, yemek-kupon, kısa bonus-SMS, tombala/poker, dekont, güvenlik-uyarısı, borç-anlatısı | +556 (eğitim) + kalibrasyon payı |
+| V10.3 (18 Tem) | Terim-dengesi turu: 16 hedefli aile (üretici + bağımsız çekişmeli denetçi hattı) + HF madenciliği — c4-tr gerçek bahis-SEO pozitifleri, winvoker/c4 organik masum-terim negatifleri (bonus/kupon/kanal/link/puan/üye/IBAN) | +509 (eğitim) + 47 (kalibrasyon); 2 örnek model-dışı |
+| V10.4 (18 Tem) | Koşu-1 hata ailelerine cerrahi tur: forum üyelik/yorum duvarı, gacha/fantezi/airdrop/spor-kura negatifleri; dekont-sosyal-kanıt, kısa bedava-TL, BÜYÜKHARF marka-link, çarpan-CTA, kurumsal-tanıtım pozitifleri (üretici + bağımsız çekişmeli denetçi) | +190 (eğitim) + 16 (kalibrasyon) |
 
-V8 turu 74 ajanla yürütüldü (kategori başına toplama + bağımsız denetim;
+V8 turu 74 paralel parti hâlinde yürütüldü (kategori başına toplama + bağımsız denetim;
 ★ kategorilerde çekişmeli ikinci denetim). 1.578 aday üretildi, denetim
 sonrası eğitim/test/kalibrasyona bölündü.
 

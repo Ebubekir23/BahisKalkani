@@ -1,9 +1,11 @@
-# Tespit Modeli — Detaylı Rehber
+# Tespit Modeli — Detaylı Rehber (v10.4)
 
 Türkçe bahis-teşvik metni sınıflandırıcısı. Bu belge dört soruya cevap verir:
 **(1)** bu model projeyle/görevle gerçekten ilgili mi, nerede ve nasıl
 kullanılacak; **(2)** veriler neye göre sınıflandırıldı; **(3)** model hangi
-yöntemlerle ve NEDEN böyle hazırlandı; **(4)** kodlarda ne var, ne yapıldı.
+yöntemlerle ve NEDEN böyle hazırlandı; **(4)** kodlarda ne var, nasıl koşulur.
+
+> Güncel durum ve deneme geçmişi: [YOL_HARITASI.md](YOL_HARITASI.md).
 
 ---
 
@@ -11,30 +13,28 @@ yöntemlerle ve NEDEN böyle hazırlandı; **(4)** kodlarda ne var, ne yapıldı
 
 BahisKalkanı (TEKNOFEST 2026 "Bağımlılıklarla Mücadelede Teknolojik
 Uygulamalar"), telefonda ekrandaki metinleri okuyup **yasa dışı bahis teşvik
-içeriğini kullanıcıya ulaşmadan kapatan** bir koruma uygulamasıdır. Uygulama
-şu an Faz 1'de: tespit, `assets/keywords.json` kelime listesiyle yapılıyor.
-Kelime listesi "bahis", "iddaa" gibi açık terimleri yakalar ama şunları
-KAÇIRIR: boşluklu yazım ("b a h i s"), yeni argo ("kasa katladık", "yeşil
-gördük"), kelimesiz teşvik ("hoca dünkü maçtan 5 kat aldık, DM at").
+içeriğini kullanıcıya ulaşmadan kapatan** bir koruma uygulamasıdır. Faz 1
+tespiti `assets/keywords.json` kelime listesiyle yapar; liste "bahis",
+"iddaa" gibi açık terimleri yakalar ama şunları KAÇIRIR: boşluklu/sansürlü
+yazım ("b a h i s", "b0nus"), yeni argo ("kasa katladık", "won aldık"),
+kelimesiz teşvik ("3.000 yatırdım bakiye 354 bine çıktı, takipte kal").
 **Bu model tam olarak o boşluğu kapatmak için var** — Faz 2'nin kendisi.
 
 [görevler/halil-tespit-modeli.md](../görevler/halil-tespit-modeli.md)
-sözleşmesindeki teslimatlarla birebir eşleşme:
+sözleşmesindeki teslimatlar ve güncel karşılıkları:
 
-| Görev dosyasındaki teslimat | Bu klasördeki karşılığı |
+| Teslimat | Karşılığı (v10.4) |
 |---|---|
-| 1. `model.tflite` (≤10 MB, APK'ya gömülecek) | `cikti/model.tflite` (88 KB) |
-| 2. Ön işleme speki (Kotlin'de yeniden yazılabilir) | `spec/ON_ISLEME.md` + `kotlin/TfLiteDetector.kt` + `cikti/model_vocab.json` |
-| 3. Skor eşiği önerisi + kalibrasyon yöntemi | `cikti/esik.json` (0.63) + bu belgenin §4.4'ü |
-| 4. ~100 örneklik kabul test seti (sansürlü + tuzaklı) | `data/kabul_testi.jsonl` (100) + bonus: `data/kabul_gercek.jsonl` (120 gerçek örnek) |
+| 1. `model.tflite` (≤10 MB) | `cikti/model.tflite` — 5 üyeli topluluk, ~535 KB |
+| 2. Ön işleme speki | `spec/ON_ISLEME.md` (v3) + `kotlin/TfLiteDetector.kt` + `cikti/model_vocab.json` (surum 3, 98 token) |
+| 3. Eşik önerisi + kalibrasyon | **0.70** — insan kararı (`esik_karari.json`; otomatik öneri 0.62 idi) + resmi kapı kaydı `cikti/esik.json`; eşik KUANTALI TFLite skorlarıyla kalibrasyon setinde taranır |
+| 4. ~100 örneklik kabul seti | `data/kabul_testi.jsonl` (100, 12 tuzak) + `data/kabul_gercek.jsonl` (391) + `data/kabul_saha.jsonl` (99, cihaz hataları) |
 
-Görevin sınırları da korunur: **tamamen cihaz üstü** (ağ yok, `INTERNET`
-izni yok), kişisel veri kaydı yok, metin başına ≤20 ms bütçesi (ölçülen:
-0,12 ms), girdi 5-200 karakterlik tek ekran öğesi metni.
+Sınırlar korunur: tamamen cihaz üstü (ağ yok, `INTERNET` izni yok), kişisel
+veri kaydı yok, metin başına ≤20 ms (ölçülen: topluluk ~0.6 ms), girdi
+5-200 karakterlik tek ekran öğesi metni.
 
 ## 2. Uygulamada nerede ve nasıl kullanılacak
-
-Çalışma anı akışı (her ekran değişiminde):
 
 ```
 AccessibilityService ekran metnini okur (ScreenReaderService.kt)
@@ -42,28 +42,24 @@ AccessibilityService ekran metnini okur (ScreenReaderService.kt)
         ▼
 Detector.isBettingContent(text)          ← tek değiştirilebilir nokta
         │
-        ├── KeywordDetector (Faz 1, kalıyor)  ─┐
-        │                                      ├─ VEYA → biri "evet" derse
-        └── TfLiteDetector (BU MODEL)         ─┘
+        ├── KeywordDetector (Faz 1, yalnız "kesin" ifadeler)  ─┐
+        │                                                      ├─ VEYA
+        └── TfLiteDetector (BU MODEL)                         ─┘
         ▼
-OverlayController: içeriğin üstüne opak kapak + uyarı + "yine de göster"
+OverlayController: opak kapak + uyarı + "yine de göster"
 ```
 
-Entegrasyon adımları (Ebubekir, [YOL_HARITASI.md](YOL_HARITASI.md)'de sahipli liste):
+Model **yalnızca 0..1 arası skor üretir**; engelleme kararını eşikle uygulama
+verir. Kelime listesi güvenlik ağı olarak kalır. Tüm ölçümler de bu ÜRETİM
+SİSTEMİNİ (kesin-kelime VEYA model) ölçer — `scripts/kelime.py`
+KeywordDetector'ın birebir Python kopyasıdır.
 
-1. `cikti/model.tflite` + `cikti/model_vocab.json` → `app/src/main/assets/`
-2. `kotlin/TfLiteDetector.kt` → `app/src/main/java/com/teknofest/bahiskalkani/detection/`
-3. `app/build.gradle.kts` bağımlılığı: `com.google.ai.edge.litert:litert:1.2.0`
-   (eski `org.tensorflow:tensorflow-lite` paketi AGP 9'da derlenmiyor;
-   LiteRT API/import uyumlu, kod değişmez)
-4. `ScreenReaderService` (satır ~31) birleşik tespitçi:
-   `Detector { t -> keyword.isBettingContent(t) || model.isBettingContent(t) }`
-5. Kabul setleriyle doğrulama + telefonda gecikme ölçümü
-
-Model **yalnızca 0..1 arası skor üretir**; engelleme kararını eşikle
-uygulama verir (eşik = ayrı ayar, model dosyasına gömülü değil). Kelime
-listesi güvenlik ağı olarak kalır: model bir şeyi kaçırırsa liste, liste
-kaçırırsa model yakalar.
+Entegrasyon (Ebubekir): `cikti/model.tflite` + `cikti/model_vocab.json` +
+`data/mesru_alanlar.json` → `app/src/main/assets/`;
+`kotlin/TfLiteDetector.kt` → `app/.../detection/`. Bağımlılık:
+`com.google.ai.edge.litert:litert:1.2.0`. **DİKKAT: v3 ön işlemeli
+TfLiteDetector.kt yalnız v3 ile eğitilmiş modelle taşınır** — eski model +
+yeni Kotlin (veya tersi) uyumsuzdur; ikisi birlikte güncellenir.
 
 ## 3. Veriler neye göre sınıflandırıldı
 
@@ -71,236 +67,193 @@ kaçırırsa model yakalar.
 
 - **label=1 (bahse teşvik):** okuyanı bahse YÖNLENDİREN içerik — kupon
   paylaşımı/çağrısı, bonus-çevrim promosyonu, site/kanal tanıtımı, katılım
-  daveti, kazanç vaadi ("yatır kazan", "DM at", "linkten üye ol"). Bahis
-  sitesinin kendi tanıtım metni de teşviktir.
-- **label=0 (teşvik yok):** geri kalan her şey — kritik incelik şurada:
-  bahis KELİMESİ geçen ama teşvik İÇERMEYEN metinler de 0'dır:
-  "yasa dışı bahis operasyonu: 12 gözaltı" (haber), "her gün bahis reklamı
-  geliyor, bıktım" (şikayet), kumar bağımlılığı uyarıları, siteye çağrısız
-  skor tahmini ("bence Fener 2-1 alır"). Model bunlara alarm verirse
-  uygulama haber sitelerini ve mağdurların şikayetlerini kapatır — kabul
-  edilemez. Bu yüzden bunlar "zor negatif" olarak bilinçli fazla temsil edildi.
-- **Tuzak negatifler:** bahis terimlerine YÜZEYSEL benzeyen masum kelimeler —
-  "Betül" (bet), "alfabetik" (bet), "bahsettiğim" (bahis kökü), "iddialı"
-  (iddaa değil), "BahisKalkanı" (uygulamanın kendi adı — marka muafiyeti).
-  Sözleşme gereği bunlarda **sıfır yanlış alarm** şartı var; kabul setinde
-  `tuzak=true` bayrağıyla ayrı ölçülür.
-- Kararsız kalınabilecek örnekler veri setine hiç alınmadı (üretici ve
-  denetçi ajanlara "tartışmalıysa AT" kuralı).
+  daveti, kazanç vaadi. Bahis sitesinin kendi tanıtım metni de teşviktir.
+- **label=0 (teşvik yok):** geri kalan her şey — kritik incelik: bahis
+  KELİMESİ geçen ama teşvik İÇERMEYEN metinler de 0'dır (operasyon haberi,
+  mağdur şikayeti, bağımlılık uyarısı, çağrısız skor tahmini, meşru kampanya).
+  Model bunlara alarm verirse uygulama haber sitelerini ve şikayetleri
+  kapatır — kabul edilemez; bu yüzden "zor negatif" olarak fazla temsil edilir.
+- **Tuzak negatifler:** bahis terimlerine yüzeysel benzeyen masum kelimeler
+  ("Betül", "alfabetik", "bahsettiğim", "iddialı", "BahisKalkanı") —
+  sözleşme gereği sıfır yanlış alarm; kabul setinde `tuzak=true` ile ayrı ölçülür.
+- Kararsız örnekler sete alınmaz ("tartışmalıysa AT"); sahada etiketi ekipçe
+  belirsiz kalanlar `gri:true` ile işaretlenir ve HİÇBİR hesaba girmez.
 
-### 3.2 Sentetik set — `data/egitim.jsonl` (1.543 örnek)
+### 3.2 Eğitim verisi — toplam 5.654
 
-Görev dosyasının önerdiği yol ("elle + üretken çeşitleme ile kendi setini
-kur"). 14 kategoride (7 pozitif: kupon, bonus/çevrim, Telegram daveti,
-sansürlü yazım, casino/slot, dolaylı-argo, canlı bahis; 7 negatif: günlük
-dil, spor sohbeti, tuzak kelimeler, finans/kazanç, haber/uyarı, oyun/uygulama
-dili, sınır örnekleri) ayrı üretici ajanlarla üretildi; **her parti bağımsız
-bir denetçi ajandan geçti** (etiket doğruluğu, gerçekçilik, uzunluk).
-İlk modelin kabul testindeki hata analizine göre üç zayıf kategoriye
-(aksansız sade teşvik, oyun/başarım dili, coşkulu günlük dil) 479 hedefli
-örnek eklendi. Güçlü yanı: sansürlü varyasyon ve tuzak kelime kapsamı
-kontrollü. Zayıf yanı: kalıpları gerçek hayattan düzgün — bu yüzden:
+- `data/egitim.jsonl` — **1.543 sentetik** (14 kategori; elle + üretken
+  çeşitleme, her parti bağımsız denetimden geçirildi).
+- `data/gercek.jsonl` — **4.111 gerçek/gerçekçi** (kaynak etiketli). Turlar:
+  ilk toplama (HF açık-lisans korpuslar, Telegram önizlemeleri, şikayet
+  siteleri, RSS) → v6-v8 (saha FP kalıpları + 37 kategorili taksonomi) →
+  v10-v10.2 (WhatsApp-sistem/LinkedIn/puan-kupon/karşı-olgusal/güvenlik/borç)
+  → **v10.3** (terim-dengesi: link/kanal/bonus/puan/IBAN + HF organik
+  madencilik, +509) → **v10.4** (koşu-1 hata ailelerine cerrahi tur: forum
+  üyelik duvarı, gacha/fantezi/airdrop, dekont-sosyal-kanıt, kısa bedava-TL,
+  BÜYÜKHARF marka-link, çarpan CTA'sı, kurumsal tanıtım, +190).
+  Kaynak/lisans/KVKK: [data/GERCEK_VERI_KAYNAKLARI.md](data/GERCEK_VERI_KAYNAKLARI.md).
+- Her turun filtreleri: bağımsız denetçi → normalize/şablon tekilleştirme →
+  test setlerine 3-gram Jaccard ≥0.5 sızıntı filtresi → öğretmen filtresi
+  (v8 skoru ≥0.95 olan negatif "model işi değil" →
+  `data/model_disi_negatifler.jsonl`) → doz ≤%15. Öğretmenin yanıldığı
+  örnekler `agirlik: 3.0` alır.
 
-### 3.3 Gerçek set — `data/gercek.jsonl` (1.375 örnek)
+### 3.3 Test/kalibrasyon setleri (eğitimden kod-doğrulamalı AYRIK)
 
-Halka açık, üyeliksiz kaynaklardan toplandı (ayrıntı + lisanslar:
-[data/GERCEK_VERI_KAYNAKLARI.md](data/GERCEK_VERI_KAYNAKLARI.md)):
-Telegram bahis kanallarının web önizlemeleri (18 kanal — gerçek teşvik
-üslubu), sikayetvar/ekşi'de mağdurların birebir alıntıladığı spam SMS'ler
-(en değerli saha verisi), HuggingFace açık lisanslı korpuslar (bahis sitesi
-tanıtım cümleleri + normal Türkçe), haber RSS başlıkları (operasyon haberleri
-dahil), gerçek kampanya dili. Süreç: toplama → KVKK maskeleme (telefon/IBAN,
-üç katman) → tekilleştirme (rakam-bağımsız şablon anahtarı ile) → **26
-bağımsız denetçiyle etiket denetimi** (1.531 adaydan 36 tartışmalı örnek
-atıldı, 2 etiket düzeltildi).
+| Set | n | Rolü |
+|---|---|---|
+| `kabul_testi.jsonl` | 100 (50/50, 12 tuzak) | Sözleşme seti — kapı 1 |
+| `kabul_gercek.jsonl` | 391 (39 kategori kaynağı) | Saha temsili genel ölçüm |
+| `kabul_saha.jsonl` | 99 — **DONDURULMUŞ** | Cihazda görülen üretim hataları; `seviye: bildirilen` (kapı 2, 0 FP şart) / `cekismeli` (izleme) / `gri` (hesap dışı) |
+| `kalibrasyon.jsonl` | 477 | Eşik seçim seti (kapıya girmez) |
 
-### 3.4 Kabul setleri — ölçümün dürüstlüğü
-
-- `kabul_testi.jsonl` (100: 50/50, 12 tuzak): sözleşme seti. Görev
-  dosyasının şart koştuğu sansürlü örnekler ("b0nus", "ç3vrim", "b a h i s")
-  içinde; çekişmeli (adversarial) ikinci denetimden geçti.
-- `kabul_gercek.jsonl` (120: 60/60): sahayı temsil eden set — 60 pozitifin
-  50'si gerçek Telegram gönderisi + gerçek spam SMS alıntısı.
-- İki set de eğitim verisinden **ayrık** (normalize edilmiş metin anahtarıyla
-  kod düzeyinde garanti; eğitime çakışan aday alınmaz).
+Ayrıklık hem veri turlarında hem eğitim anında doğrulanır: `train.py`
+başlarken eğitim ∩ (kabul + kalibrasyon) kesişimini ölçer, sızıntı bulursa
+KOŞUYU DURDURUR.
 
 ## 4. Model hangi yöntemlerle, neden böyle hazırlandı
 
-### 4.1 Neden karakter seviyesi CNN? (yöntem seçiminin gerekçesi)
-
-Görevin kısıtları alternatifleri tek tek eler:
+### 4.1 Neden karakter seviyesi CNN?
 
 | Alternatif | Neden elendi |
 |---|---|
-| Büyük transformer (BERTurk vb.) | 100+ MB model, 10 MB sınırını ve 20 ms bütçesini aşar; görev dosyası açıkça "kaçının" diyor |
-| Kelime seviyesi model + hazır tokenizer | Sansürlü yazım ("b0nus") kelime sınırlarını bozar; tokenizer'ların çoğu Python'a/ağa bağımlı → Kotlin'de yeniden yazılamaz, göreve aykırı |
-| TF-IDF + lojistik regresyon | TFLite'a çevirisi dolaylı; n-gram sözlüğü büyür; sansür varyasyonlarında genelleme zayıf |
-| **Karakter CNN (seçilen)** | Sansür/boşluk varyasyonlarına doğal dayanıklı (karakter deseni öğrenir), tokenizasyonu ~15 satır Kotlin (spec'e uygun), ~86 bin parametre → 88 KB, 0,12 ms |
+| Büyük transformer (BERTurk vb.) | 100+ MB, 10 MB sınırını ve 20 ms bütçesini aşar |
+| Kelime seviyesi model + hazır tokenizer | Sansürlü yazım kelime sınırlarını bozar; tokenizer Kotlin'de yeniden yazılamaz |
+| TF-IDF + lojistik regresyon | TFLite'a çevirisi dolaylı; sansür varyasyonunda genelleme zayıf |
+| **Karakter CNN (seçilen)** | "b0nus"/"b.a.h.i.s" aynı karakter desenlerini taşır; tokenizasyon ~15 satır Kotlin; üye başına ~110 KB |
 
-Karakter yaklaşımının göreve özgü avantajı: "b0nus", "b.a.h.i.s", "bahiis"
-aynı karakter komşuluk desenlerini taşır — kelime modeli bunları üç ayrı
-bilinmeyen kelime görür, karakter modeli aynı örüntünün varyantı görür.
+### 4.2 Mimari (v8 Optuna seçimi — SABİT) + v10.2 topluluk
 
-### 4.2 Mimari
+Tek üye: `Embedding(98→32) → SpatialDropout1D → paralel Conv1D(160; çekirdek
+3/4/5) → GlobalMaxPooling → Dense(64) → Dense(1, sigmoid)`.
+**Nihai model 5 tohumun ([42,133,7,2025,777]) skor ORTALAMASINI alan tek
+TFLite'tır** (`topluluk_kur`). Neden: tek-tohum artefaktında karar sınırı her
+eğitimde kayıyor, sıfır-tolerans kapıyı her turda FARKLI tek örnek
+deviriyordu (underspecification/köstebek-vurmaca). Ortalama varyansı ~1/√5
+düşürür. Boyut ~535 KB, gecikme ~0.6 ms — sınırların çok altında; Kotlin
+tarafı değişmez (tek dosya).
 
-```
-Girdi: int32[192]  (kodpoint id'leri; sözlük ~85 karakter: TR alfabe +
-                    rakam + noktalama + 9 emoji; 0=pad, 1=bilinmeyen)
-Embedding(85→48) → SpatialDropout1D(0.09)
-→ paralel Conv1D(96 filtre; çekirdek 3, 4, 5) → her biri GlobalMaxPooling
-→ birleştir → Dropout(0.30) → Dense(64, relu) → Dropout(0.25)
-→ Dense(1, sigmoid) = "bahse teşvik" skoru (0..1)
-```
+### 4.3 Eğitim istikrar mekanizmaları
 
-Paralel farklı çekirdek boyutları farklı uzunlukta örüntüleri yakalar
-(3-karakter: "dm ", 5-karakter: "bonus"). Global max pooling "metnin
-herhangi bir yerinde bu örüntü var mı" sorusuna bakar — teşvik ifadesi
-cümlenin neresinde olursa olsun yakalanır. Boyutlar elle seçilmedi (bkz. 4.5).
+- **Churn çıpası (distilasyon):** SABİT `cikti/ogretmen_v8.tflite` eğitim
+  metinlerini skorlar; öğretmenin DOĞRU bildiği örneklerde hedef yumuşak:
+  0.7·etiket + 0.3·öğretmen (yeni veri eklerken bariz pozitiflerin kaçmasını
+  engeller — v9 dersinin ilacı). Öğretmen v2 sözlüğüyle eğitildiği için
+  `preprocess_ogretmen` (v2) ile skorlanır. Yedek yok: öğretmen dosyası
+  yoksa distilasyon AÇIKÇA atlanır.
+- **SWA v2:** her epoch ağırlık anlık görüntüsü alınır; eğitim bitince en
+  iyi epoch'ta biten ~%25'lik pencerenin ortalaması, YALNIZ doğrulama
+  AUC'sinde geri yüklenen en-iyi ağırlıklardan kötü değilse uygulanır;
+  hangi rejimin kazandığı üye başına rapora yazılır.
+- **Focal loss (yumuşak-etiket destekli form)** veya BCE+smoothing —
+  Optuna'nın seçimine göre (`cikti/en_iyi_ayarlar.json`).
+- Aşırı öğrenme önlemleri: bölme ÇOĞALTMADAN ÖNCE, SpatialDropout, L2,
+  EarlyStopping, çoğaltma yalnız eğitim bölmesine; `asiri_ogrenme_farki`
+  rapora yazılır.
 
-### 4.3 Aşırı öğrenmeye (overfitting) karşı alınan önlemler
+### 4.4 Ön işleme sözleşmesi v3 (Python ↔ Kotlin birebir)
 
-1. **Bölme çoğaltmadan ÖNCE** yapılır — aynı cümlenin varyantları eğitim ve
-   doğrulamaya dağılıp skoru şişiremez (sızıntı önleme).
-2. **SpatialDropout1D**: embedding kanallarını topluca düşürür; küçük veri
-   setinde tek karaktere ezber yapmayı kırar.
-3. **L2 ağırlık cezası** (conv + dense) ve **etiket yumuşatma** (0.03):
-   aşırı emin tahminleri cezalandırır.
-4. **EarlyStopping** (val AUC, en iyi ağırlıklara dönüş) + **ReduceLROnPlateau**.
-5. **Veri çoğaltma** yalnız eğitim bölmesine: sansür ikamesi (o→0, i→1...),
-   aksansız yazım (ç→c...), boşluklu yazım — pozitife yoğun, negatife hafif
-   (model "rakamlı yazım = bahis" gibi sahte bağıntı öğrenmesin diye iki
-   sınıfa da uygulanır).
-6. **Şeffaf ölçüm:** `egitim_raporu.json` eğitim−doğrulama farkını yazar
-   (`asiri_ogrenme_farki`); %5'i aşarsa script ekranda uyarır. Nihai
-   modelde %5,0 — sınırda, kabul edilebilir; bilinen ve izlenen bir durum.
+NFC → **fold** (’→' —→- …→... NBSP→boşluk •·→. â→a + U+FE0F sil) → URL
+normalizasyonu (meşru alan `data/mesru_alanlar.json` silinir, diğer URL'ler
+🔗 jetonu) → Türkçe küçük harf + U+0307 → kodpoint→id (98 token; 10
+spam-emojisi v3'te SONA eklendi, id'ler kaymadı) → 192'ye kes/doldur.
+Ayrıntı + test vektörleri: [spec/ON_ISLEME.md](spec/ON_ISLEME.md).
 
-### 4.4 Eşik kalibrasyonu — metodolojik dürüstlük
+### 4.5 Eşik: recall-kısıtlı, KUANTALI artefakt üzerinde, insan onaylı
 
-İlk sürümde eşik kabul setinde seçilip başarı aynı sette raporlanıyordu;
-iç denetimde bunun **iyimser sapma** yarattığı tespit edildi (%91 görünen
-gerçekte %87'ydi). Düzeltme: eşik artık **eğitimin doğrulama bölmesindeki**
-F1 platosunun (en uzun bitişik blok) ortasından seçilir; kabul setleri bu
-SABİT eşikle yalnızca rapor eder. Nihai eşik: **0.63** (plato 0.62–0.65 —
-genişliği, küçük skor oynamalarına dayanıklılık demek).
+`train.py`, dönüşümden SONRA kuantalanmış TFLite'ın skorlarıyla kalibrasyon
+setinde "sistem recall ≥ 0.90 kısıtı altında precision-maks" eşiğini seçer
+(float↔TFLite sapması rapora yazılır). `esik_karari.json` doluysa otomatiği
+ezer; nihai eşik her sürümde İNSAN kararıyla sabitlenir ve Kotlin
+`VARSAYILAN_ESIK` eşitlenir. Eşik kabul setlerinde ASLA seçilmez (iyimser
+sapma — v1'de yaşandı, düzeltildi).
 
-### 4.5 Hiperparametre araması (Optuna) — neden ve nasıl
+### 4.6 Sürüm kapısı (degerlendir.py — hepsi sağlanmalı → EVET)
 
-Embedding boyutu, filtre sayısı, dropout oranları, L2, öğrenme hızı gibi 11
-ayar elle tahmin yerine **Optuna** (TPE örnekleyici + MedianPruner) ile
-arandı — 40 deneme. Kritik tasarım: her deneme **3-katlı çapraz doğrulama**
-ile ölçülür; tek bölmeyle aransaydı ayarlar o bölmeye "ezber" yapardı
-(eşikte düzeltilen sapmanın aynısı). En iyi ayar: CV AUC 0.988
-(`cikti/en_iyi_ayarlar.json`); `train.py` bu dosyayı bulunca otomatik kullanır.
+1. Sözleşme seti: doğruluk ≥ %90 VE tuzak FP = 0
+2. `bildirilen` üretim hatalarında 0 FP (cihazda görülmüş hatanın tekrarı
+   sürümü düşürür); `cekismeli` yalnız İZLENİR, `gri` hiçbir hesaba girmez
+3. INV-URL değişmezliği: negatife meşru-görünümlü URL eklemek alarm üretmemeli
 
-### 4.6 TFLite dönüşümü ve ön işleme sözleşmesi
+Ek raporlar: dilim (kategori) raporu, kelime-sınırlı terim FP/FN raporu
+(kupon/puan/tl/iban/link/bonus/kanal/üye/spin/tombala/poker/papara...),
+kalibrasyon skor-bandı teşhisi, kelime-katmanı kanıtı, gecikme. Kapı
+ARTEFAKTA özgüdür: her yeniden eğitimde yeniden ölçülür.
 
-Keras modeli SavedModel üzerinden TFLite'a çevrilir, **dinamik aralık
-kuantalama** ile küçültülür (88 KB). Tokenizasyon bilinçli olarak model
-DIŞINDA tutuldu: TFLite'ın string operatör desteği zayıf; karakter→id
-eşlemesi deterministik olduğundan Kotlin'de ~15 satırda birebir yazılabiliyor
-(görev dosyasındaki "vocab + net kurallar" seçeneği). Python ve Kotlin'in
-AYNI girdiyi üretmesi ayrı bir sözleşme belgesiyle güvenceye alındı
-([spec/ON_ISLEME.md](spec/ON_ISLEME.md)): NFC normalizasyonu, Türkçe küçük
-harf kuralları (İ/I), U+0307 temizliği, kodpoint (UTF-16 değil!) dolaşımı,
-192'ye kes/doldur — test vektörleriyle.
+## 5. Kodlar
 
-## 5. Kodlarda neler var
-
-| Script | Ne yapar |
+| Dosya | Ne yapar |
 |---|---|
-| `scripts/train.py` | Veriyi yükler (sentetik + varsa gerçek), %85/15 stratified böler, eğitim bölmesini çoğaltır, modeli kurar (Optuna ayarları varsa onlarla) ve eğitir, eşiği doğrulama bölmesinde seçer, TFLite'a çevirir, sözlüğü ve raporu yazar. Deterministiktir (sabit tohum; sözlük veriden türetilmez → yeniden eğitim Kotlin tarafını bozmaz). |
-| `scripts/degerlendir.py` | `model.tflite`'ı TFLite yorumlayıcısıyla iki kabul setinde SABİT eşikle koşar; doğruluk/F1/FP/FN/tuzak-FP raporlar, hatalı örnekleri listeler (veri iyileştirme döngüsünün girdisi), gecikme ölçer, `esik.json` yazar; Colab'daysa çıktıları `model_cikti.zip` olarak paketler. |
-| `scripts/ayarla.py` | İsteğe bağlı Optuna araması (3-katlı CV); `en_iyi_ayarlar.json` üretir. |
-| `kotlin/TfLiteDetector.kt` | Android referans implementasyonu: `Detector` arayüzünü uygular, `assets`ten model+sözlük yükler, spec'teki ön işlemeyi yapar, skor üretir, `VARSAYILAN_ESIK=0.63` ile karar verir. |
+| `scripts/train.py` | Damga + sızıntı kontrolü → veri + çoğaltma → churn çıpası → 5 tohum eğitim (SWA v2) → topluluk → TFLite (dinamik aralık kuantalama) → kuantalı eşik taraması → sözlük/rapor. `BK_SMOKE=1` ile hızlı boru hattı duman testi (sonuç modeli değildir). |
+| `scripts/degerlendir.py` | 3 kabul setini ÜRETİM SİSTEMİYLE koşar; kapı + dilim + terim FP/FN + INV + kalibrasyon teşhisi + gecikme → `cikti/esik.json`; Colab'daysa `model_cikti.zip` paketler. |
+| `scripts/kelime.py` | Android KeywordDetector'ın birebir kopyası (`app/assets/keywords.json`, Colab için yedek: `data/keywords.json` — app ile SENKRON tutulur). |
+| `scripts/ayarla.py` | İsteğe bağlı Optuna araması (v10+ için gerekli değil — mimari sabit). |
+| `kotlin/TfLiteDetector.kt` | Android referansı: v3 ön işleme + URL kanalı + çıplak URL kapısı + meta-veri süzgeci. |
 
-Geliştirme sürecinde yapılanların kaydı (v1→v5 deneme geçmişi, hata
-analizleri, metodoloji düzeltmesi) [YOL_HARITASI.md](YOL_HARITASI.md)'dedir.
-
-## 6. Sonuçlar ve dürüst sınırlılıklar
-
-**Nihai model (v5 — Colab, 13 Temmuz 2026):**
-
-| Ölçüm | Sonuç | Hedef |
-|---|---|---|
-| Sentetik kabul (sözleşme) | **%96** — yanlış alarm 0, tuzak FP 0 | ≥%90 + tuzak 0 ✅ |
-| Gerçek saha seti | **%94,2** — 1 yanlış alarm, 6 kaçan | (bonus ölçüm) |
-| Boyut / gecikme | 88 KB / 0,12 ms | ≤10 MB / ≤20 ms ✅ |
-
-Sınırlılıklar (bilerek belgelendi):
-- Kaçan gerçek pozitiflerin çoğu ÇOK KISA spam ("hesap aç 500 TL Bonus") —
-  5-6 kelimelik SMS'lerde bağlam az; kelime listesi bunların bir kısmını
-  zaten yakalar (VEYA mantığının değeri). Gelecek veri turu notu düşüldü.
-- Tek yanlış alarm, bahis kelimeleri yoğun bir mağdur şikayeti (0.97 skor) —
-  şikayet dili ile teşvik dili sınırı modelin en zor ayrımı.
-- Aşırı öğrenme farkı %5,0 (sınırda): eğitim setini ezberliyor ama
-  doğrulama/kabul performansı güçlü; veri büyüdükçe düşmesi beklenir.
-- Eğitim verisinin yarısı sentetik; gerçek saha seti bu riski ölçüyor
-  (%94,2) ama üretim kalitesi iddiası için daha geniş gerçek veri gerekir.
-- Yalnız Türkçe; İngilizce teşvik kapsam dışı (kelime listesi "free spin"
-  gibi terimleri karşılıyor).
-
-## 7. Klasör haritası
-
-| Yol | Ne |
-|---|---|
-| `data/egitim.jsonl` | Sentetik eğitim seti (`{"text","label"}`; 1 = teşvik) |
-| `data/gercek.jsonl` | Gerçek eğitim seti (internetten, kaynak etiketli — train.py otomatik ekler) |
-| `data/kabul_testi.jsonl` | 100 örneklik sentetik kabul/sözleşme seti (`tuzak` alanlı) |
-| `data/kabul_gercek.jsonl` | 120 örneklik GERÇEK saha test seti (60/60, altın kaynak ağırlıklı) |
-| `data/GERCEK_VERI_KAYNAKLARI.md` | Gerçek verinin kaynakları, lisanslar, KVKK önlemleri |
-| `data/kabul_saha.jsonl` | v6: saha regresyon seti (cihazda görülen gerçek yanlış alarmlar + benzerleri; kapı: 0 FP) |
-| `data/kalibrasyon.jsonl` | v6: saha-temsili eşik seçim seti (eşik artık burada seçilir) |
-| `data/mesru_alanlar.json` | v6: meşru alan adı listesi (391; URL kanalı — assets'e de kopyalanır) |
-| `scripts/` | train.py, degerlendir.py, ayarla.py, requirements.txt |
-| `spec/ON_ISLEME.md` | Ön işleme sözleşmesi (Python ↔ Kotlin) |
-| `kotlin/TfLiteDetector.kt` | Ebubekir'in taşıyacağı referans implementasyon |
-| `cikti/` | `model.tflite`, `model_vocab.json`, `esik.json`, raporlar, Optuna ayarları |
-| `YOL_HARITASI.md` | Durum, deneme geçmişi, kalan işler, açık soruların cevap önerileri |
-
-## 8. Çalıştırma — Google Colab (önerilen)
-
-`model_colab.zip`'i Colab'a yükleyin, sonra:
+## 6. Çalıştırma — Google Colab (gerçek eğitim; Halil koşar)
 
 ```python
-# Eski koşudan kalan klasörü temizle + sorusuz aç (soru çıkarsa ASLA 'n' demeyin:
-# 'n' eski dosyaları bırakır ve farkında olmadan eski sürümü çalıştırırsınız)
+# Hücre 1 — temizlik + yükleme (eski zip kazasına karşı)
+!rm -f /content/model_colab*.zip
 !rm -rf /content/model
+from google.colab import files
+files.upload()   # → masaüstündeki güncel model_colab.zip
+
+# Hücre 2 — aç + eğit + değerlendir  (~8-12 dk + ~2-3 dk)
 !unzip -q -o /content/model_colab.zip -d /content
+!python /content/model/scripts/train.py
+!python /content/model/scripts/degerlendir.py
 
-# v6 NOTU: zip'te cikti/ yok (v5 modeli v2 ön işlemeyle uyumsuzdu) —
-# SIRALAMA ÖNEMLİ: önce ayarla.py/train.py, degerlendir.py en son.
-
-# ÖNERİLEN: hiperparametre araması (veri + kayıp fonksiyonu değişti;
-# 40 deneme × 3-katlı CV, A100'de ~30-40 dk)
-!pip -q install optuna
-!python /content/model/scripts/ayarla.py
-
-!python /content/model/scripts/train.py          # cikti/model.tflite + model_vocab.json
-!python /content/model/scripts/degerlendir.py    # 3 kabul seti + dilim raporu + INV testi
-```
-
-Son adım — çıktıları indirme (AYRI bir hücrede, `!` olmadan çalıştırın;
-`files.download` yalnızca not defteri hücresinden çalışır):
-
-```python
+# Hücre 3 (AYRI hücre) — çıktıyı indir
 from google.colab import files
 files.download("/content/model/model_cikti.zip")
 ```
 
-İnen `model_cikti.zip`'i `Bağimlilik_TEKNOFEST` klasörüne koyun. Yerel/PC
-koşusunda paketleme-indirme adımı kendiliğinden atlanır.
+Çıktı doğrulaması: ilk satır `### PAKET: ... ###` paket_bilgisi.json ile
+tutmalı; "Sızıntı kontrolü ✓", "Öğretmen (ogretmen_v8.tflite, v2 ön işleme)"
+ve "KUANTALI TFLite" satırları görünmeli. GPU'da metrikler binde birlik
+oynayabilir — bağlayıcı sonuç her zaman `degerlendir.py` çıktısıdır.
 
-Model küçüktür: CPU'da 2-3 dk, GPU yalnız `ayarla.py` için anlamlı fark
-yaratır. GPU'da metrikler binde birlik oynayabilir — bağlayıcı sonuç her
-zaman `degerlendir.py` çıktısıdır. Aşırı öğrenme takibi:
-`egitim_raporu.json` → `asiri_ogrenme_farki` %5'i aşarsa `ayarla.py` koşun.
+Yerel (Windows): `py -3.12` gerekir (TF, 3.13+ desteklemiyor). Hızlı boru
+hattı testi: `BK_SMOKE=1 py -3.12 model/scripts/train.py`.
 
-## 9. Çalıştırma (Windows, yerel)
+## 7. Sonuçlar ve dürüst sınırlılıklar (v10.4, 18 Tem — resmi kayıt)
 
-```
-py -3.12 -m pip install -r model/scripts/requirements.txt
-py -3.12 model/scripts/train.py
-py -3.12 model/scripts/degerlendir.py
-```
+**Sürüm kapısı: EVET @0.70** (`cikti/esik.json`; eşik insan kararı — iki
+bağımsız eğitim koşusunda 0.70-0.90 penceresi kapının üç koşulunu da geçti,
+otomatik öneri 0.62 idi):
 
-TensorFlow, Python 3.13+/3.14 için paket sunmuyor; yerelde 3.12 gerekir.
+| Ölçüm | Sonuç | Hedef |
+|---|---|---|
+| Sözleşme (100, 12 tuzak) | **%100 — FP 0, FN 0, tuzak 0** | ≥%90 + tuzak 0 ✅ |
+| Gerçek saha (391) | %94.9 — FP 1, FN 19 | (genel ölçüm) |
+| Saha regresyonu (96) | %99 — bildirilen **0 FP** ✅, çekişmeli 0/34 | bildirilen 0 FP ✅ |
+| INV-URL | 0 ihlal | 0 ✅ |
+| Boyut / gecikme | 534 KB / ~0.3 ms | ≤10 MB / ≤20 ms ✅ |
+
+Bilinen sınırlar:
+- **Mağdur şikayeti ↔ teşvik sınırı** en zor ayrım (bahis-marka yoğun şikayet
+  0.7-0.9 alabiliyor) — kabul edilen yapısal sınır; şikayet uygulama/haber
+  yüzeyleri yüzey kapısıyla korunur.
+- Kelimesiz sosyal-kanıt ("bakiye 354 bine çıktı") ve bağlamsız kısa
+  metinler tek eşikle tam çözülmez; çözümün öbür yarısı Ebubekir'in yüzey
+  kapısı paketi (`oneriler/`).
+- Yalnız Türkçe; İngilizce teşvik kelime listesine emanet.
+- Eğitim verisinin bir kısmı elle + üretken çeşitlemeyle kurulmuştur; gerçek
+  dağılım uyumu kabul_gercek
+  + sandbox çapraz doğrulamasıyla (Ezgi `posts.json` bekleniyor) sınanır.
+
+## 8. Klasör haritası
+
+| Yol | Ne |
+|---|---|
+| `data/egitim.jsonl` / `gercek.jsonl` | Eğitim setleri (5.654; `agirlik` alanı 3x zor örnek) |
+| `data/kabul_*.jsonl` / `kalibrasyon.jsonl` | §3.3'teki test/eşik setleri |
+| `data/mesru_alanlar.json` | 391 meşru alan adı (URL kanalı; assets'e de gider) |
+| `data/model_disi_negatifler.jsonl` | Öğretmen ≥0.95 negatifler — yüzey kapısı malzemesi |
+| `data/keywords.json` | KeywordDetector listesinin Colab kopyası (app ile senkron) |
+| `data/GERCEK_VERI_KAYNAKLARI.md` | Kaynak/lisans/KVKK belgesi (rapora girer) |
+| `scripts/` · `spec/` · `kotlin/` | §5 + §4.4 |
+| `cikti/` | model.tflite, model_vocab.json, esik.json, egitim_raporu.json, **ogretmen_v8.tflite (SABİT çıpa — SİLME!)**, en_iyi_ayarlar.json |
+| `esik_karari.json` / `paket_bilgisi.json` | İnsan-kararı eşik (null=otomatik) / paket damgası |
+| `oneriler/` | Ebubekir'e yüzey kapısı devir paketi |

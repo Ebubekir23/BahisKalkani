@@ -1,5 +1,16 @@
-# Ön İşleme Spesifikasyonu (model v2)
+# Ön İşleme Spesifikasyonu (model v3)
 
+> **v3 değişikliği (18 Tem, v10.3 OOV analizi):** NFC'den hemen sonra
+> **fold adımı** eklendi (aşağıda §FOLD): tipografik karakterler sözlükteki
+> karşılıklarına katlanır, U+FE0F (emoji varyasyon seçicisi) silinir. Sözlüğe
+> **SONA** 10 emoji eklendi (😂😎🚀⚡💸👇🎉🎯➡😅, `surum: 3`) — v2 id'leri
+> KAYMADI. v2 ile eğitilmiş model (ör. `ogretmen_v8.tflite`) v3 ön işlemeyle
+> ÇALIŞMAZ: yeni id'ler onun embedding aralığını taşırır — train.py bu yüzden
+> öğretmeni ayrı `preprocess_ogretmen` (v2) ile skorlar. Gerekçe: veri
+> setindeki 1.599 sözlük-dışı karakterin ~%27'si tipografik varyanttı
+> (’ — … NBSP), 132'si U+FE0F idi; sahada Android klavyeleri kıvrık tırnak
+> üretir.
+>
 > **v2 değişikliği (13 Tem, saha yanlış alarmı düzeltmesi):** adımlara URL
 > normalizasyonu eklendi (aşağıda §URL) ve sözlüğe 🔗 jetonu eklendi
 > (`surum: 2`). v1 ile eğitilmiş model v2 ön işlemeyle ÇALIŞMAZ — model ve
@@ -17,6 +28,20 @@ skorlara yol açar. Bu belge tek kaynaktır; referans implementasyonlar:
 1. **Unicode NFC normalizasyonu.**
    - Python: `unicodedata.normalize("NFC", text)`
    - Kotlin: `Normalizer.normalize(text, Normalizer.Form.NFC)`
+1a. **Fold — tipografik katlama (§FOLD, v3).** NFC'den hemen sonra, URL
+   normalizasyonundan ÖNCE uygulanır (NBSP→boşluk, URL sınır tespitine de
+   yardım eder). Harita İKİ DİLDE BİREBİR aynıdır (Python `train.py` →
+   `FOLD_MAP`/`fold()`, Kotlin `TfLiteDetector.kt` → `fold()`); idempotenttir:
+   | Girdi | Çıktı |
+   |---|---|
+   | U+FE0F (emoji varyasyon seçicisi) | silinir |
+   | U+00A0 (NBSP) | boşluk |
+   | ’ ‘ ´ \` | ' |
+   | “ ” « » „ | " |
+   | – — | - |
+   | … | ... |
+   | • · | . |
+   | â Â / î Î / û Û | a / i / u (doğrudan küçük hedef — fold, küçük-harf adımından ÖNCE koştuğu için büyük biçimler haritada OLMAK ZORUNDA) |
 1b. **URL normalizasyonu (§URL, v2).** `URL_RE` ile eşleşen her adres için:
    alan adı çıkarılır (protokol ve `www.` atılır, ilk `/` veya `?`de kesilir,
    küçük harfe çevrilir); alan adı `mesru_alanlar.json` listesindeyse eşleşme
@@ -61,14 +86,18 @@ skorlara yol açar. Bu belge tek kaynaktır; referans implementasyonlar:
   tarafında 96 kodpoint adımlı kayan pencere + pencere başına skor maksimumu
   önerilir (şimdilik gerekmez, kod basit kalsın).
 
-## Sözlük (`model_vocab.json`, surum 2)
+## Sözlük (`model_vocab.json`, surum 3)
 
 - `max_len`: 192, `pad`: 0, `oov`: 1, `url_jetonu`: "🔗"
 - `karakterler`: Türk alfabesi + qwx (32), rakamlar (10), boşluk + yaygın
   noktalama/semboller (₺ € dahil), bahis paylaşımlarında sık görülen 9 emoji
-  (💚🔥🎰💰⚽🎁✅⭐📲) + 🔗 URL jetonu (v2'de SONA eklendi — id'ler kaymadı).
+  (💚🔥🎰💰⚽🎁✅⭐📲) + 🔗 URL jetonu (v2'de SONA eklendi — id'ler kaymadı)
+  + v3'te SONA eklenen 10 emoji (😂😎🚀⚡💸👇🎉🎯➡😅; OOV analizinde en sık
+  görülenler — spam sinyali taşıyorlar, OOV'de eziliyorlardı).
 - Sözlük eğitim script'inde sabittir (veriden türetilmez): yeniden eğitimde
-  id'ler kaymaz, Kotlin tarafı değişmez.
+  id'ler kaymaz, Kotlin tarafı değişmez (sözlüğü dosyadan okur).
+- DİKKAT: v2 sözlüğüyle eğitilmiş artefaktlara (ör. `ogretmen_v8.tflite`)
+  v3 id'leri VERİLMEZ — embedding aralığı taşar (train.py `preprocess_ogretmen`).
 
 ## Test vektörleri (URL — iki tarafta da doğrulanmalı)
 

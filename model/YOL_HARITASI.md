@@ -1,19 +1,19 @@
 # Tespit Modeli — Yol Haritası ve Devir Belgesi
 
-Son güncelleme: 13 Temmuz 2026. Bu belge iki iş görür: (1) modelin güncel
+Son güncelleme: 18 Temmuz 2026. Bu belge iki iş görür: (1) modelin güncel
 durumu ve kalan işlerin sahipli listesi, (2) bu çalışmayı devralacak kişi
-ya da yapay zekâ oturumu için işleyiş talimatı. Teslim sözleşmesinin kendisi
+için işleyiş talimatı. Teslim sözleşmesinin kendisi
 [görevler/halil-tespit-modeli.md](../görevler/halil-tespit-modeli.md).
 
-## Durum özeti
+## Durum özeti (v10.4 — güncel)
 
 | Teslimat | Durum |
 |---|---|
-| 1. `model.tflite` (≤10 MB) | ✅ **NİHAİ** — Colab'da Halil eğitti (13 Tem): 88 KB, sentetik kabul %96, gerçek saha %94.2; artefaktın yereldeki doğrulaması birebir tuttu |
-| 2. Ön işleme speki | ✅ [spec/ON_ISLEME.md](spec/ON_ISLEME.md) + iki dilde referans kod |
-| 3. Eşik önerisi + kalibrasyon | ✅ **0.63** (doğrulama bölmesi platosu 0.62–0.65) — `cikti/esik.json`; Kotlin sabiti eşitlendi |
-| 4. ~100 örnek kabul seti | ✅ `data/kabul_testi.jsonl` (çok ajanlı üretim + çekişmeli denetim) |
-| + Gerçek veri (13 Tem, Halil kararı) | ✅ `data/gercek.jsonl` 1.375 eğitim + `data/kabul_gercek.jsonl` 120 saha testi — kaynak/lisans: [data/GERCEK_VERI_KAYNAKLARI.md](data/GERCEK_VERI_KAYNAKLARI.md) |
+| 1. `model.tflite` (≤10 MB) | ✅ **v10.4 topluluk** (5 üyenin skor ortalaması, tek TFLite, 534 KB) — Colab'da Halil eğitti (18 Tem); **sürüm kapısı EVET @0.70** (`cikti/esik.json`) |
+| 2. Ön işleme speki | ✅ [spec/ON_ISLEME.md](spec/ON_ISLEME.md) **v3** + iki dilde referans kod (`model_vocab.json` surum 3, 98 token) |
+| 3. Eşik önerisi + kalibrasyon | ✅ **0.70** — insan kararı (`esik_karari.json`; otomatik öneri 0.62; kuantalı TFLite skorlarıyla kalibrasyon setinde tarandı); Kotlin sabiti eşitlendi |
+| 4. ~100 örnek kabul seti | ✅ `data/kabul_testi.jsonl` (100; çok aşamalı üretim + çekişmeli denetim) — v10.4'te %100 |
+| + Gerçek veri | ✅ `data/gercek.jsonl` 4.111 eğitim + `data/kabul_gercek.jsonl` 391 saha testi + `data/kabul_saha.jsonl` 99 (dondurulmuş) + `data/kalibrasyon.jsonl` 477 — kaynak/lisans: [data/GERCEK_VERI_KAYNAKLARI.md](data/GERCEK_VERI_KAYNAKLARI.md) |
 
 ### Deneme geçmişi (12-13 Temmuz, yerel doğrulama koşuları)
 
@@ -30,9 +30,8 @@ v4'te kaçan pozitif yok; kalan 4 yanlış alarm coşkulu günlük dil sınır
 örnekleri. Tanı taraması kabul üstünde 0.91–0.95 aralığının %97 verdiğini
 gösteriyor — demo günü yanlış alarm öncelikliyse eşik oraya çekilebilir
 (kaçan pozitif riski karşılığında; karar sandbox verisiyle ikinci
-kalibrasyon turunda). `cikti/` v4 koşusunun çıktısını içeriyor; nihai
-eğitim Colab'da aynı veriyle tekrarlanacak (deterministik, aynı sonucu
-vermesi beklenir; GPU'da binde birlik oynama olabilir).
+kalibrasyon turunda). `cikti/` o dönemde v4 koşusunun çıktısını içeriyordu;
+nihai eğitim Colab'da tekrarlandı (güncel içerik v10.4 artefaktıdır).
 
 ### Aşırı öğrenme önlemleri + hiperparametre araması (13 Tem, Halil isteği)
 
@@ -54,10 +53,171 @@ Sebep: GPU↔CPU sayısal farkları birebir aynı modeli üretmiyor → kapı so
 Sonuç: teslim edilen artefakt, kapıdan GEÇEN belirli Colab modelidir
 (`cikti/model.tflite`, zip'te). **Körlemesine yeniden eğitmeyin** — her
 yeniden eğitim kapıyı yeniden koşmalı (araç bunu otomatik yapar: `esik_karari.
-json` 0.60'ı kalıcı tutar, degerlendir.py kapıyı her koşuda dürüstçe ölçer;
+json` kalıcı insan kararını tutar, degerlendir.py kapıyı her koşuda dürüstçe ölçer;
 yerel modeli GERÇEKTEN eledi — kapı gerçek, damga değil). Yeniden eğitim
 gerekirse: Colab'da koş, kapı EVET veren artefaktı al; eşiği gerekiyorsa
 esik_karari.json'dan ayarla.
+
+### V9 dersleri + V10 hazırlığı (16-17 Tem)
+
+**Saha (v8 entegre):** WhatsApp sistem mesajları, LinkedIn tebrik/profil,
+yemek-app puan/kupon ekranı, IBAN/dekont, uzun grup duyuruları yanlış
+kapatıldı (görseller: `uygulama_çikti_gorselleri/`). **V9 denemesi
+BAŞARISIZ:** kapasite 6x + karşı-negatif yığını + kapı setine ekleme + yüzey
+kapısının değerlendirmeye gömülmesi AYNI ANDA yapıldı → recall çöktü
+(sözleşme FN 0→3), kapı yine HAYIR, eski FP'ler duruyor. Doğru fikirleri
+(kesin_regex, SurfaceGuard, saha ailelerinin bildirilen'e eklenmesi) korundu:
+`model/oneriler/` (Ebubekir'e paket + patch). App/ değişiklikleri geri
+alındı (sahiplik); eğitimdeki şablon-sızıntılı kopyalar temizlendi.
+
+**V10 reçetesi (sektör bulgularıyla — kaynaklar: replay arXiv:2506.09428,
+cRT ICLR20, logit-adj ICLR21, Dixon AIES18, NV-Retriever 2407.15831, SWA,
+underspecification JMLR22):**
+- Mimari v8'te SABİT; v8 artefaktı `cikti/ogretmen_v8.tflite` olarak ÇIPA:
+  churn distilasyonu — v8'in doğru bildiği örneklerde yumuşak hedef
+  (α=0.7) → FP düzeltirken bariz pozitifler kaçmaz.
+- Yeni veri: 384 gerçek örnek (wp-sistem 106, linkedin 71, puan-kupon 72,
+  uzun-dilim 55 [ilk-192 kesiti], karşı-olgusal 40 çift); üç filtre:
+  test-benzerlik (3-gram Jaccard ≥0.5 → at), öğretmen ≥0.95 negatif → 
+  `yuzey_adaylari.jsonl` (model işi değil), doz ≤%15 (gerçekleşen %6.6).
+- Eşik: recall≥0.90 kısıtı altında precision-maks (önsel kayması telafisi);
+  `esik_karari.json` v10'da null → eğitim sonrası insanla sabitlenir.
+- Kararlılık: SWA + 3 tohum ([42,133,7]); seçim KALİBRASYONDA (kapıda asla).
+- Ölçüm: degerlendir.py'ye terim-FP raporu (Dixon); kabul_saha DONDURULDU
+  (99 örnek: v8 + v9 denemesinin bildirilen aileleri — kapı v10 için daha sert
+  ve bu bilinçli). Kalan bilinen açık: eğitimde IBAN'lı negatif hâlâ az
+  (sızıntı korumasından — test IBAN örnekleri kopyalanamaz); izlenecek.
+
+### V10.3 veri mükemmelleştirme turu (18 Tem, Halil isteği "veri setini mükemmelleştir")
+
+**Röntgen bulguları (kanıt):** hijyen temizdi (ayrıklık 0, tekrar 0, çelişkili
+etiket 0) ama kapsamda boşluk vardı: terim dengesizliği (link %93 / kanal %95 /
+bonus %92 pozitif tarafta; **IBAN'lı negatif 0**; puan pozitifi yalnız 2) +
+eski koşunun FN aileleri (freespin 0.44, tombala 0.20, slot-yayıncı 0.49-0.62,
+ödeme-vurgulu 0.54, kurumsal-tanıtım 0.085, dolaylı-argo "Bahisleri kaçırmayın"
+0.58) + FP aileleri (resmi tebligat 0.79, finans ticker "GARAN +1,74%" 0.72,
+meşru kupon/üyelik CTA).
+
+**Yöntem (yerleşik protokol):** 16 hedefli aile için ayrı üretim hattı + her
+partiye BAĞIMSIZ çekişmeli denetim; 2 HF madencilik taraması (Dataset Viewer API):
+c4-tr'den gerçek bahis-SEO pozitifleri (+25), winvoker+c4'ten organik
+masum-terim negatifleri (+51). 586 aday → denetim 559 → yerel filtreler
+(normalize/şablon tekilleştirme, kabul+kalibrasyon setlerine 3-gram Jaccard
+≥0.5 sızıntı taraması: 0 ihlal, öğretmen-v8 ≥0.95-negatif filtresi: 2 örnek
+`model_disi_negatifler.jsonl`'e, doz %10.3 ≤ %15) → **+509 eğitim
+(258 poz / 251 neg, gercek.jsonl'e v103-* kaynaklarıyla) + 47 kalibrasyon**.
+Öğretmenin yanıldığı 83 örneğe `agirlik: 3.0` (v7/v8 emsali).
+
+**Sonuç dengeler:** iban %100→%45 poz-oranı (0→12 masum IBAN), puan %3→%24,
+link %93→%81, kanal %95→%84, bonus %92→%89; IBAN/TR00 maskeli negatif 1→18.
+Aileler: freespin-çevrim 31, slot-yayıncı 32, tombala-poker 29, ödeme-vurgulu
+30, dolaylı-argo 33, marka-kod-mirror 24, kurumsal-tanıtım 29, puan-bedava-tl
+29, resmi-tebligat 31, finans-borsa 27, iban-kişisel 30, masum-link 29,
+masum-kanal 29, masum-bonus-puan 30, üyelik-kupon-CTA 28, karşı-olgusal 39
+(19 çift), hf-poz 25, hf-neg 51. Damga: **v10.3-topluluk / 5464**;
+zip 32 dosya ~467 KB. Tur öncesi yedek: `../yedek_v10.2/`.
+DONDURULMUŞ setlere (kabul_testi/kabul_gercek/kabul_saha) dokunulmadı.
+
+### V10.3 kod turu (18 Tem, Halil isteği "kodu da mükemmelleştir")
+
+4 mercekli sistematik kod incelemesi (topluluk-TFLite / eğitim hattı /
+değerlendirme / Python↔Kotlin sözleşmesi) + her bulgu için çekişmeli
+doğrulayıcı → 14 doğrulanmış bulgu. Yapılan düzeltmeler:
+
+**Kritik (koşarak doğrulanmış):**
+- Topluluk çökmesi: `clear_session` ad sayaçlarını sıfırlıyordu, 5 üye de
+  "functional" adını alıp `topluluk_kur`'da ValueError üretiyordu (v10.2 yolu
+  hiç koşulmadığı için görülmemişti — 5 tohumluk Colab eğitimi boşa gidecekti).
+  Düzeltme: `build_model(..., ad=f"uye_{tohum}")`.
+- SWA v2: eski SWA, EarlyStopping'in geri yüklediği en-iyi ağırlıkları
+  SORGUSUZ eziyordu ve pencere planlanan 60 epoch'a çıpalıydı (erken durmada
+  ya sessiz devre dışı ya tamamen zirve-sonrası ortalama). Yeni tasarım: her
+  epoch anlık görüntü + val_auc; pencere fiili epoch'a göre en-iyi epoch'ta
+  biter; SWA yalnız val AUC'de en-iyiden kötü değilse uygulanır; rejim üye
+  başına rapora yazılır.
+- Ön işleme v3 fold'unda büyük Â/Î/Û tuzağı: fold küçük-harften ÖNCE koştuğu
+  için büyük biçimler haritaya doğrudan küçük hedefle eklendi (spec §FOLD).
+
+**Orta:**
+- Eşik artık KUANTALI TFLite skorlarıyla taranıyor (float Keras eşiği
+  kuantalı üründe doğrulanmıyordu); float↔TFLite maks sapma rapora yazılır.
+- Focal loss yumuşak-etiket destekli forma çevrildi (eski pt-formu churn
+  çıpasının yumuşak hedefleriyle matematiksel uyumsuzdu).
+- Öğretmen yedeği kaldırıldı: `ogretmen_v8.tflite` yoksa distilasyon açıkça
+  atlanır (self-distillation kayması + yanlış rapor düzeltildi).
+- Colab'da `keywords.json` bulunamayınca kelime katmanı SESSİZCE kapanıyordu
+  → `model/data/keywords.json` yedeği eklendi (app assets ile SENKRON
+  tutulmalı!), kelime katmanı kanıtı esik.json'a yazılır, boşsa gürültülü uyarı.
+- Gri satırlar artık TÜM kabul_saha hesaplarından baştan çıkarılır (eskiden
+  yalnız kapıdan çıkarılıyordu, başlık metrikleri gri içeriyordu).
+- kelime.py listeleri Türkçe-locale küçültme + ayrık-İ SpecialCasing ile
+  Android'e birebir eşitlendi.
+
+**Yeni yetenekler:** ön işleme v3 (fold + U+FE0F sil; OOV analizi: 1.599
+sözlük-dışı karakterin ~%55'i kurtuldu) + sözlük 88→98 (10 spam-emojisi
+SONA — Kotlin kodu değişmedi, id'ler kaymadı; öğretmen v2 sözlüğüyle
+`preprocess_ogretmen` üzerinden skorlanır); eğitim içinde sızıntı kapısı
+(eğitim ∩ test/kalibrasyon ≠ 0 → koşu durur); veri parmak izi (sha256) +
+doğrulama hata-kaynak raporu rapora; terim raporu kelime-sınırlı regex +
+katıl/katil ayrımı + FN tarafı + yeni terimler (spin/tombala/poker/papara);
+kalibrasyon skor-bandı teşhisi; `BK_SMOKE=1` duman testi modu.
+
+**Doğrulama:** 215 metinlik altın referansla öğretmen-paritesi birebir; 9
+fold birim testi + idempotens; 4 script py_compile; scratchpad kopyasında
+BK_SMOKE=1 uçtan uca koşu (eğitim → topluluk → TFLite 217 KB → kuantalı eşik
+[sapma 0.0014] → değerlendirme → kapı/INV/teşhis/esik.json) SORUNSUZ. Gerçek
+eğitim yine Colab'da (Halil).
+
+- [x] **V10.3 KOŞU-1 yapıldı (18 Tem, Colab, @0.58 otomatik):** sözleşme %99
+      (tuzak 0), gerçek-391 %95.4 (FP 6/FN 12), **çekişmeli izleme 0/34 FP
+      (İLK KEZ)**, INV 0, topluluk 534 KB, 0.58 ms; SWA her üyede dürüst
+      ölçüldü (hiçbirinde en-iyiyi geçemedi → en-iyi korundu). KAPI: tek
+      `bildirilen` örnekle HAYIR — forum üyelik kalıbı ("Sadece kayıtlı
+      üyeler yorum yapabilir...", 0.690; eski koşularda ~0.87-0.90'dı).
+      Eşik penceresi analizi: **0.70-0.90 bandı kapının ÜÇ koşulunu da
+      geçiyor**; 0.70'in maliyeti kalibrasyon sistem recall 0.928→0.886 +
+      kabul_gercek'te 3 sınır FN. Artefakt arşivi:
+      `../../model_cikti_v103_kosu1_esik058.zip`. KOŞU-2 (eşik 0.70
+      denemesi): konsol çıktısı kullanıcı tarafından teyit edildi, artefakt
+      arşivlenmedi — v10.4 kök-neden çözümünü hedeflediği için karar
+      kalıcılaştırılmadı.
+
+### V10.4 cerrahi veri turu (18 Tem, Halil isteği "her şeyi pürüzsüzleştir")
+
+Koşu-1'in KALAN hata ailelerine nokta atışı: 10 ailede ayrı üretim + bağımsız
+çekişmeli denetim (İLHAM olarak verilen test örneklerinin kopyalanması
+yasak — denetçi + 3-gram Jaccard çift korumalı). 260 aday → denetim 206 →
+filtreler → **+190 eğitim (86 poz / 104 neg, doz %3.5) + 16 kalibrasyon**;
+sızıntı 0, model-dışı 0. Aileler: forum-üyelik/yorum duvarı 25n (kapıyı
+düşüren ailenin organik varyantları), gacha-çark 23n, fantezi-paket 24n,
+airdrop-görev 23n, spor-kura 18n; dekont-sosyal-kanıt 19p, kısa bedava-TL
+22p, BÜYÜKHARF marka-kod-link 11p (denetçi 15 minimal örneği "teşvik niyeti
+tek başına sezilmiyor" diye reddetti — bilinçli), çarpan-CTA 19p,
+kurumsal-tanıtım-2 22p. `esik_karari.json` null'a döndürüldü (0.70 denemesi
+tarihçede). README v10.4 gerçekliğine modernize edildi (v5 kalıntıları
+temizlendi). Damga: **v10.4-topluluk / 5654**; yedek: `../../yedek_v10.3/`.
+
+- [x] **V10.4 KOŞU-3 yapıldı (18 Tem, Colab) → SÜRÜM KAPISI EVET @0.70:**
+      Otomatik eşik 0.62 (kalibrasyon recall 0.902, precision 0.981);
+      sözleşme İLK KEZ %100 (FP 0/FN 0/tuzak 0). Forum-üyelik kalıbı iki
+      cerrahi tura rağmen 0.690→0.693'te SABİT kaldı → model işi değil,
+      bağlam işi teşhisi kesinleşti (forum yüzeyi SurfaceGuard'a). Eşik
+      penceresi İKİNCİ bağımsız artefaktta da doğrulandı (0.70-0.90 →
+      kapı geçer) → **eşik 0.70 KALICI İNSAN KARARI** (esik_karari.json).
+      RESMİ KAYIT (degerlendir.py @0.70, cikti/esik.json): sözleşme %100,
+      gerçek-391 %94.9 (FP 1 — bahis-marka yoğun şikayet, bilinen yapısal
+      sınır; FN 19), saha %99 (bildirilen 0 FP ✓, çekişmeli 0/34 ✓), INV 0 ✓,
+      gecikme ~0.3 ms, topluluk 534 KB. **Hedef karşılandı: EVET.**
+      Kotlin VARSAYILAN_ESIK 0.60→0.70 eşitlendi. Artefakt arşivi:
+      `../../model_cikti_v104_kosu3_esik062.zip`.
+- [ ] **PUSH (Halil izni bekleniyor):** model/ + oneriler/ tek temiz commit
+      (haliluzun3579-cell, Co-Authored-By'sız). Sonra Ebubekir devri:
+      yeni model.tflite + model_vocab v3 + mesru_alanlar + TfLiteDetector.kt
+      v3 (BİRLİKTE — eski modelle v3 Kotlin uyumsuz) + oneriler/ paketi;
+      telefonda gecikme ölçümü; Ezgi posts.json çapraz doğrulama.
+- [ ] Ebubekir devri: TfLiteDetector.kt v3 (fold eklendi) + model_vocab v3 —
+      model YENİDEN EĞİTİLMEDEN app'e taşınmamalı (v8 artefaktı v3 ön
+      işlemeyle uyumsuz; birlikte güncellenir).
 
 ## İşleyiş — bu çalışma nasıl yürüyor
 
@@ -134,7 +294,7 @@ esik_karari.json'dan ayarla.
       düzelmediğini ölçer, jenerelleme; eğitim verisi bu setle ayrık).
 - [x] **V8 kapsamlı veri genişletme HAZIR (13 Tem, Halil isteği "tüm olası
       durumları kapsa"):** 37 kategorili taksonomi (17 poz + 20 neg, 12 ★
-      yeni zor tuzak) → 74 ajan (toplama+çekişmeli denetim) → 1578 yeni
+      yeni zor tuzak) → 74 paralel parti (toplama+çekişmeli denetim) → 1578 yeni
       gerçek örnek. v7 modeli 202'sine yanılıyordu → 3x ağırlık.
       Yeni ★ negatif kapsamı (sahada FP kaynağı): oyun içi gacha/çark,
       meşru çekiliş, piyango/Milli Piyango, fantezi lig, kripto airdrop,
