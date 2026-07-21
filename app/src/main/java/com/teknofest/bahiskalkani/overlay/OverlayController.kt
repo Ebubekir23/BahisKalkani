@@ -240,6 +240,21 @@ class OverlayController(
     }
 
     private companion object {
+        /*
+         * Kapak üç kademede çizilir — çünkü engellenen bölgeler ekranda çok
+         * farklı boyutlarda çıkıyor (arama önerisi satırı ile video kartı
+         * aynı değil) ve dar bir kapağa uyarı + buton sıkıştırmak okunmaz
+         * bir yığın üretiyordu (13 Tem saha testi):
+         *
+         *   dar/alçak            → yalnız karartma
+         *   ≥140 yükseklik+geniş → karartma + uyarı yazısı
+         *   ≥220 yükseklik+geniş → karartma + uyarı + kendi "yine de göster"i
+         *
+         * Alttaki toplu çip HER durumda vardır: küçük kapakların kendi
+         * butonu olmadığı için tek kaçış yolu odur. Büyük kapaklarda ikisi
+         * birden görünür — kapak butonu yalnız o içeriği, çip ekrandaki
+         * tümünü açar.
+         */
         const val MIN_HEIGHT_FOR_WARNING_PX = 140
         const val MIN_HEIGHT_FOR_BUTTON_PX = 220
         const val MIN_WIDTH_FOR_TEXT_PX = 320

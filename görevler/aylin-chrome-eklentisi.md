@@ -16,6 +16,28 @@ tutulacak.
 3. **"Yine de göster"**: kapatılan öğe üzerinde buton; tıklanınca o içerik
    oturum boyunca açık kalır
 
+## Karar: Chrome tarafı yalnız kelime listesiyle gider (18 Tem)
+
+Tespit modeli (Halil) yalnızca Android'e takıldı; eklentide model **yok**.
+Bu bilinçli: modelin tarayıcı sürümü (TF.js) ayrı bir iş kalemi ve model
+hâlâ hareketli hedef. Sonucu: geniş terimler ("kumar", "bahis") eklentide
+kelime düzeyinde eşleştiği için haber cümleleri de yakalanabiliyor —
+**bu bug değil, tasarım sınırı**; listeyi inceltmek korumayı zayıflatır.
+
+Çözüm, bağlamı bedavaya veren tek sinyalle: **alan adı.**
+
+- Bu repodaki `model/data/mesru_alanlar.json` (391 denetlenmiş meşru alan)
+  eklentiye eklenir.
+- `location.hostname` o listedeyse: **yalnız `kesin` ifadeler** engeller
+  (haber metninde "deneme bonusu" geçmez → haberler temiz kalır).
+- Listede değilse: bugünkü tam koruma (kesin + genel).
+
+Bilinçli takas: meşru bir sitenin yorum bölümündeki spam artık yalnız kesin
+ifadelerle yakalanır. Demo/rapor kapsamı için kabul edildi.
+
+Not: konsolda fonksiyonu tek başına test edince site bilgisi olmadığı için
+haber cümlesi yine `true` döner — doğrulamayı gerçek sayfada yap.
+
 ## Android tarafıyla eşdeğerlik (kritik)
 
 Bu repodaki `app/src/main/assets/keywords.json` **tek kaynak** — dosyayı
@@ -59,3 +81,8 @@ Listeyi kim güncellerse diğer tarafa iletir (şimdilik elle senkron).
 - 24 Temmuz: temel tespit + kapatma çalışıyor (popup basit olabilir)
 - 4-5 Ağustos: rapor ekran görüntüleri (eklenti bahisli bir sayfada engelleme
   yaparken + sayaç popup'ı)
+
+## Sende OLMAYAN iş
+
+PC tarafı için offline açılan demo HTML sayfasını **Ebubekir** yapıyor.
+Senin işin eklentiyi geliştirmek ve o sayfa üzerinde test etmek.

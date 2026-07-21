@@ -75,6 +75,22 @@ olarak kalacak. Eşiği uygulama uygular; model yalnızca skor döner.
 - Eşik kalibrasyonu hangi veriyle (öneri: sandbox gönderi JSON'u + kabul
   test seti, birlikte)?
 
+## Entegrasyon sonrası açık madde (18 Tem)
+
+v10.4 + SurfaceGuard uygulamaya alındı. Yüzey kapısı taslağındaki eşikler
+0.60 tabanına göreydi; nihai eşik 0.70 olduğu için oranlar korunarak sürüm
+kapısının doğrulandığı 0.70-0.90 penceresine taşındı:
+
+| Yüzey | Eşik |
+|---|---|
+| Genel (tarayıcı vb.) | 0.70 (`VARSAYILAN_ESIK`) |
+| Mesajlaşma (WhatsApp/Telegram) | 0.80 |
+| LinkedIn | 0.86 |
+| Yemek/alışveriş | 0.88 |
+
+Kalibrasyon turunda bu değerleri teyit et (gerekirse `esik_karari.json`
+mantığıyla revize edelim). Cihaz gecikme ölçümü Ebubekir'den gelecek.
+
 ## Takvim
 
 - **24 Temmuz:** baseline model entegrasyona hazır (yukarıdaki teslim

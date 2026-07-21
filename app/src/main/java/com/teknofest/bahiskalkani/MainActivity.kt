@@ -7,26 +7,36 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.teknofest.bahiskalkani.service.ScreenReaderService
 import com.teknofest.bahiskalkani.stats.BlockStats
 import com.teknofest.bahiskalkani.ui.theme.BahisKalkaniTheme
@@ -79,75 +89,191 @@ fun MainScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.main_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Text(
-            text = stringResource(R.string.main_description),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Header()
+        StatusCard(serviceEnabled = serviceEnabled, onOpenSettings = onOpenSettings)
+        CounterCard(blockedCount = blockedCount)
+        HowItWorksCard()
+        PrivacyNote()
+    }
+}
 
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (serviceEnabled) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.errorContainer
-                },
-            ),
-            modifier = Modifier.fillMaxWidth(),
+@Composable
+private fun Header() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            Text(text = "🛡", fontSize = 28.sp)
+        }
+        Column {
+            Text(
+                text = stringResource(R.string.main_title),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                text = stringResource(R.string.main_slogan),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusCard(serviceEnabled: Boolean, onOpenSettings: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (serviceEnabled) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            },
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = stringResource(
-                        if (serviceEnabled) R.string.main_status_on else R.string.main_status_off,
-                    ),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                if (!serviceEnabled) {
+                Text(text = if (serviceEnabled) "✅" else "⚠️", fontSize = 24.sp)
+                Column {
                     Text(
-                        text = stringResource(R.string.main_status_off_hint),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = stringResource(
+                            if (serviceEnabled) R.string.main_status_on else R.string.main_status_off,
+                        ),
+                        style = MaterialTheme.typography.titleLarge,
                     )
-                    Button(onClick = onOpenSettings) {
-                        Text(stringResource(R.string.main_enable_button))
-                    }
+                    Text(
+                        text = stringResource(
+                            if (serviceEnabled) {
+                                R.string.main_status_on_hint
+                            } else {
+                                R.string.main_status_off_hint
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            // Aynı ayar ekranı hem açmaya hem kapatmaya götürür; kullanıcı
+            // korumayı kapatmak istediğinde de uygulamadan tek dokunuşla
+            // ulaşabilmeli (servisi koddan kapatmak mümkün değil).
+            if (serviceEnabled) {
+                Text(
+                    text = stringResource(R.string.main_disable_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.main_disable_button))
+                }
+            } else {
+                Button(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.main_enable_button))
                 }
             }
         }
+    }
+}
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.main_blocked_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = blockedCount.toString(),
-                    style = MaterialTheme.typography.displaySmall,
-                )
-            }
+@Composable
+private fun CounterCard(blockedCount: Int) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.main_blocked_label),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = blockedCount.toString(),
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
+    }
+}
 
-        Spacer(modifier = Modifier.weight(1f))
+@Composable
+private fun HowItWorksCard() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.main_how_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            HowRow(emoji = "👁️", textRes = R.string.main_how_1)
+            HowRow(emoji = "🧠", textRes = R.string.main_how_2)
+            HowRow(emoji = "🚫", textRes = R.string.main_how_3)
+        }
+    }
+}
+
+@Composable
+private fun HowRow(emoji: String, textRes: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(text = emoji, fontSize = 18.sp)
         Text(
-            text = stringResource(R.string.main_kvkk_note),
-            style = MaterialTheme.typography.bodySmall,
+            text = stringResource(textRes),
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun MainScreenPreview() {
+private fun PrivacyNote() {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 4.dp),
+    ) {
+        Text(text = "🔒", fontSize = 14.sp)
+        Text(
+            text = stringResource(R.string.main_kvkk_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Kalkan aktif")
+@Composable
+fun MainScreenActivePreview() {
     BahisKalkaniTheme {
-        MainScreen(serviceEnabled = true, blockedCount = 12, onOpenSettings = {})
+        MainScreen(serviceEnabled = true, blockedCount = 27, onOpenSettings = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Kalkan kapalı")
+@Composable
+fun MainScreenDisabledPreview() {
+    BahisKalkaniTheme {
+        MainScreen(serviceEnabled = false, blockedCount = 0, onOpenSettings = {})
     }
 }

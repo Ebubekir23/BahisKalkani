@@ -1,4 +1,4 @@
-# 🛡 BahisKalkanı
+# 🛡 Bahis Kalkanı
 
 TEKNOFEST 2026 "Bağımlılıklarla Mücadelede Teknolojik Uygulamalar" yarışması
 projesi. Sistem, sosyal medyadaki yasadışı bahis teşvik içeriklerini cihaz
