@@ -4,14 +4,12 @@ Bu proje TEKNOFEST 2026 "Bağımlılıklarla Mücadelede Teknolojik Uygulamalar 
 
 ## Sistem Bileşenleri ve Sahipleri
 
-- **Android Kalkan (Ebubekir YILMAZ):** AccessibilityService ile ekran metnini okur, tespit motoruna sorar, bahis içeriğinin üstüne overlay (opak kapak + uyarı + "yine de göster") çizer. Not: bölge bazlı gerçek blur Android erişilebilirlik overlay'inde uygulanabilir değil (FLAG_BLUR_BEHIND tüm ekranı bulanıklaştırıp cihazı kilitliyor — denendi); opak kapak koruma açısından eşdeğer, hatta daha güçlü (bulanık içerik kısmen seçilebilir, opak hiç seçilemez). Raporda bu şekilde anlatılacak. Faz 1'de tespit = kelime listesi; Faz 2'de TFLite model takılacak, bu yüzden Detector tek bir değiştirilebilir arayüz olarak kalmalı.
+- **Android Kalkan + PC Demo Sayfası (Ebubekir YILMAZ — proje lideri):**
+  - *Android Kalkan:* AccessibilityService ile ekran metnini okur, tespit motoruna sorar, bahis içeriğinin üstüne overlay (opak kapak + uyarı + "yine de göster") çizer. Faz 1'de tespit = kelime listesi; Faz 2'de TFLite model takılır, bu yüzden Detector tek bir değiştirilebilir arayüz olarak kalmalı. Not: bölge bazlı gerçek blur Android erişilebilirlik overlay'inde uygulanabilir değil (FLAG_BLUR_BEHIND tüm ekranı bulanıklaştırıp cihazı kilitliyor — denendi); opak kapak koruma açısından eşdeğer, hatta daha güçlü (bulanık içerik kısmen seçilebilir, opak hiç seçilemez).
+  - *PC Demo Sayfası:* offline açılan tek dosyalık HTML — sahte sosyal medya akışı, gönderi verisi sandbox'ın `posts.json`'undan. Final demosu offline olduğu için tarayıcı eklentisi bu sayfada gösterilecek; aynı içeriğin telefonda kalkanla, bilgisayarda eklentiyle yakalanması ürün bütünlüğünü gösterir.
+  - *Ayrıca:* proje liderliği — ekipler arası koordinasyon ve entegrasyonlar.
 - **Demo Sandbox (Ezgi Efsa GÜLEÇ):** Instagram benzeri sahte sosyal medya uygulaması (Kotlin/Compose, LazyColumn feed, gönderiler yerel JSON'dan, tamamen offline). Final günü jüri demosu bu uygulama üzerinde yapılacak: aynı telefonda sandbox + kalkan kurulu olacak, kalkan sandbox'taki bahis gönderilerini canlı yakalayacak. Ayrı repoda.
 - **Chrome Eklentisi (Aylin AKAGÜNDÜZ):** Aynı mantığın tarayıcı versiyonu, Manifest V3, content script + sayaç popup'ı. Ayrı repoda geliştiriliyor. Kelime listesi ve Detector mantığı Android tarafıyla eşdeğer tutulmalı — bir tarafta liste güncellenirse diğerine de taşınır. **Karar (18 Tem): tarayıcı tarafı yalnız kelime listesiyle gider** (model Android'de); haber sitelerindeki yanlış alarmlar `mesru_alanlar.json` ile alan-bazlı davranışla çözülür. Modelin TF.js sürümü ileriye bırakıldı.
-- **PC Demo Sayfası (Ebubekir YILMAZ):** offline açılan tek dosyalık HTML —
-  sahte sosyal medya akışı, gönderi verisi sandbox'ın `posts.json`'undan.
-  Final demosu offline olduğu için tarayıcı eklentisi bu sayfada
-  gösterilecek; aynı içeriğin telefonda kalkanla, bilgisayarda eklentiyle
-  yakalanması ürün bütünlüğünü gösterir.
 - **Tespit Modeli (Halil Hadra UZUN):** Türkçe bahis-teşvik metni sınıflandırıcısı. Kısıtlar: cihaz üstü çalışacak (küçük/hızlı, TFLite hedefi), ağ isteği yok, kişisel veri yok. Sansürleme varyasyonlarını ("b0nus", "ç3vrim") kapsayacak. Hazır olunca bu repodaki Detector implementasyonunun yerine geçecek.
 
 ## Ekip Genelinde Geçerli Kurallar
